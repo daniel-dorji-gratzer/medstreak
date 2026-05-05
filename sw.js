@@ -1,8 +1,8 @@
-const CACHE = 'medstreak-v2';
+const CACHE = 'medstreak-v3';
 
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(['/manifest.json', '/icon-192.png', '/icon-512.png']))
+    caches.open(CACHE).then(c => c.addAll(['./manifest.json', './icon-192.png', './icon-512.png']))
   );
   self.skipWaiting();
 });
@@ -18,7 +18,7 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
 
   // HTML: immer vom Netzwerk, Fallback auf Cache
-  if (e.request.destination === 'document' || url.pathname.endsWith('.html') || url.pathname === '/') {
+  if (e.request.destination === 'document' || url.pathname.endsWith('.html') || url.pathname.endsWith('/')) {
     e.respondWith(
       fetch(e.request)
         .then(res => {
