@@ -1,0 +1,1917 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>MedStreak</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#6366f1" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="MedStreak" />
+  <style>
+    /* ─── THEME VARIABLES ─────────────────────────────── */
+    :root {
+      --primary: #6366f1;
+      --success: #22c55e;
+      --danger: #ef4444;
+      --gold: #f59e0b;
+      --radius: 16px;
+      --radius-sm: 10px;
+      --nav-h: 58px;
+    }
+    [data-theme="dark"] {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface2: #2d3f55;
+      --border: #3d536e;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --shadow: rgba(0,0,0,0.35);
+      --nav-bg: #16243a;
+      --cal-partial-bg: rgba(99,102,241,0.28);
+      --cal-partial-text: #c7d2fe;
+      --color-btn-sel-border: rgba(255,255,255,0.7);
+    }
+    [data-theme="light"] {
+      --bg: #f0f4f8;
+      --surface: #ffffff;
+      --surface2: #f0f4f8;
+      --border: #dde3ec;
+      --text: #0f172a;
+      --muted: #64748b;
+      --shadow: rgba(15,23,42,0.07);
+      --nav-bg: #ffffff;
+      --cal-partial-bg: rgba(99,102,241,0.12);
+      --cal-partial-text: #4338ca;
+      --color-btn-sel-border: #0f172a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      min-height: -webkit-fill-available;
+      overflow-x: hidden;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    /* ─── LAYOUT ─────────────────────────────────────── */
+    /* BUG FIX: account for iOS safe-area so nav never overlaps content */
+    #app {
+      max-width: 480px; margin: 0 auto;
+      padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 8px);
+    }
+
+    /* ─── HEADER ─────────────────────────────────────── */
+    .header {
+      background: linear-gradient(140deg, #4338ca 0%, #6d28d9 55%, #7c3aed 100%);
+      padding: 16px 20px 24px;
+      padding-top: max(16px, env(safe-area-inset-top));
+      position: relative; overflow: hidden;
+    }
+    .header::before {
+      content: ''; position: absolute; top: -60px; right: -50px;
+      width: 200px; height: 200px;
+      background: rgba(255,255,255,0.06); border-radius: 50%;
+    }
+    .header::after {
+      content: ''; position: absolute; bottom: -30px; left: 20px;
+      width: 100px; height: 100px;
+      background: rgba(255,255,255,0.04); border-radius: 50%;
+    }
+    .header-top {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px; position: relative; z-index: 1;
+    }
+    .app-title { font-size: 20px; font-weight: 800; letter-spacing: -0.3px; color: white; }
+    .app-title span { font-size: 22px; }
+    #level-badge {
+      font-size: 11px; color: rgba(255,255,255,0.7);
+      margin-top: 3px; font-weight: 500;
+    }
+    #freeze-header { text-align: right; }
+
+    .xp-bar-wrap { position: relative; z-index: 1; }
+    .xp-label {
+      display: flex; justify-content: space-between; align-items: baseline;
+      font-size: 11px; color: rgba(255,255,255,0.7); margin-bottom: 7px;
+      gap: 8px;
+    }
+    /* BUG FIX: prevent xp-next from overflowing on small screens */
+    .xp-label span:first-child { font-weight: 700; font-size: 12px; white-space: nowrap; }
+    .xp-label span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+    .xp-bar {
+      height: 7px; background: rgba(255,255,255,0.18);
+      border-radius: 99px; overflow: hidden;
+    }
+    .xp-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #7dd3fc, #6ee7b7);
+      border-radius: 99px;
+      transition: width 0.7s cubic-bezier(0.34,1.56,0.64,1);
+    }
+
+    /* ─── STATS ROW ──────────────────────────────────── */
+    .stats-row {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 10px; padding: 14px 16px 0;
+    }
+    .stat-card {
+      background: var(--surface); border-radius: 14px;
+      padding: 14px 8px; text-align: center;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 4px var(--shadow);
+      transition: background 0.3s, border-color 0.3s;
+    }
+    .stat-icon { font-size: 22px; display: block; margin-bottom: 5px; }
+    .stat-value { font-size: 24px; font-weight: 800; line-height: 1; }
+    .stat-label { font-size: 10px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .stat-card.fire .stat-value { color: #fb923c; }
+    .stat-card.xp .stat-value { color: #a78bfa; }
+    .stat-card.shield .stat-value { color: #60a5fa; }
+
+    /* ─── TODAY PROGRESS ─────────────────────────────── */
+    .today-progress {
+      background: var(--surface); border-radius: var(--radius);
+      padding: 14px 16px; margin: 12px 16px 0;
+      display: flex; align-items: center; gap: 14px;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 4px var(--shadow);
+      transition: background 0.3s, border-color 0.3s;
+    }
+    .today-text { flex: 1; min-width: 0; }
+    .today-title { font-size: 15px; font-weight: 700; }
+    .today-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+    .progress-ring-bg { fill: none; stroke: var(--surface2); stroke-width: 4; }
+    .progress-ring-fill {
+      fill: none; stroke: var(--primary); stroke-width: 4;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.6s ease;
+      transform: rotate(-90deg); transform-origin: center;
+    }
+
+    /* ─── SECTION ─────────────────────────────────────── */
+    .section { padding: 16px 16px 0; }
+    /* BUG FIX: last section in any view gets bottom breathing room */
+    .view > .section:last-child,
+    .section.last { padding-bottom: 16px; }
+    .section + .section { padding-top: 16px; }
+
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 12px; gap: 8px;
+    }
+    .section-title { font-size: 15px; font-weight: 700; letter-spacing: -0.1px; }
+    .section-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+    .btn-ghost {
+      background: none; border: none; color: var(--primary);
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      padding: 6px 0; white-space: nowrap;
+    }
+
+    /* ─── MED CARD ────────────────────────────────────── */
+    .med-card {
+      background: var(--surface); border-radius: var(--radius);
+      padding: 15px; margin-bottom: 10px;
+      border: 2px solid transparent;
+      box-shadow: 0 1px 4px var(--shadow);
+      transition: border-color 0.25s, box-shadow 0.25s, background 0.3s;
+      position: relative; overflow: hidden;
+    }
+    .med-card.done {
+      border-color: var(--success);
+      box-shadow: 0 0 0 1px rgba(34,197,94,0.15), 0 1px 4px var(--shadow);
+    }
+    .med-card.done::before {
+      content: ''; position: absolute; inset: 0;
+      background: rgba(34,197,94,0.05); pointer-events: none;
+    }
+    .med-card-top { display: flex; align-items: flex-start; gap: 12px; }
+    .med-icon {
+      width: 46px; height: 46px; border-radius: 13px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; flex-shrink: 0;
+    }
+    .med-info { flex: 1; min-width: 0; }
+    .med-name {
+      font-size: 16px; font-weight: 700;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .med-meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .med-streak {
+      display: flex; align-items: center; gap: 3px;
+      font-size: 14px; font-weight: 700; color: #fb923c; flex-shrink: 0;
+    }
+    .med-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .btn-take {
+      flex: 1; padding: 11px; border-radius: 11px; border: none;
+      font-size: 14px; font-weight: 700; cursor: pointer;
+      transition: transform 0.12s, opacity 0.2s;
+      background: linear-gradient(135deg, var(--primary), #7c3aed);
+      color: white; letter-spacing: 0.01em;
+    }
+    .btn-take:active { transform: scale(0.97); opacity: 0.9; }
+    .btn-take.done {
+      background: var(--surface2); color: var(--success);
+      border: 1.5px solid rgba(34,197,94,0.3);
+    }
+    .btn-take.done:disabled { cursor: default; }
+    /* BUG FIX: .btn-delete is only used for the icon button on med cards now */
+    .btn-icon {
+      width: 42px; height: 42px; border-radius: 11px;
+      border: 1.5px solid var(--border); background: var(--surface2);
+      color: var(--muted); font-size: 16px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+      flex-shrink: 0;
+    }
+    .btn-icon:hover { color: var(--danger); border-color: var(--danger); background: rgba(239,68,68,0.06); }
+
+    /* ─── STREAK DOTS ─────────────────────────────────── */
+    .streak-mini { display: flex; gap: 4px; margin-top: 10px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--surface2); flex-shrink: 0; }
+    .dot.done { background: var(--success); }
+    .dot.today { background: #fb923c; }
+    .dot.missed { background: var(--danger); opacity: 0.4; }
+
+    /* ─── GOAL CARD ───────────────────────────────────── */
+    .goal-card {
+      background: var(--surface); border-radius: var(--radius);
+      padding: 16px; margin-bottom: 10px;
+      border: 1.5px solid var(--border);
+      box-shadow: 0 1px 4px var(--shadow);
+      position: relative; overflow: hidden;
+      transition: background 0.3s, border-color 0.3s;
+    }
+    .goal-card.complete {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 1px rgba(245,158,11,0.2), 0 1px 4px var(--shadow);
+    }
+    .goal-card.complete::before {
+      content: ''; position: absolute; inset: 0;
+      background: rgba(245,158,11,0.04); pointer-events: none;
+    }
+    .goal-top { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
+    .goal-icon {
+      width: 46px; height: 46px; border-radius: 13px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; flex-shrink: 0;
+    }
+    .goal-info { flex: 1; min-width: 0; }
+    .goal-name { font-size: 16px; font-weight: 700; }
+    .goal-desc { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
+    .goal-pct { font-size: 22px; font-weight: 800; flex-shrink: 0; line-height: 1; }
+
+    .goal-progress-bar {
+      height: 9px; background: var(--surface2);
+      border-radius: 99px; overflow: hidden; margin-bottom: 7px;
+    }
+    .goal-progress-fill {
+      height: 100%; border-radius: 99px;
+      transition: width 0.7s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .goal-progress-label {
+      display: flex; justify-content: space-between;
+      font-size: 11px; color: var(--muted);
+    }
+    .goal-meds { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 11px; }
+    .goal-med-chip {
+      display: flex; align-items: center; gap: 4px;
+      background: var(--surface2); border-radius: 99px;
+      padding: 4px 10px; font-size: 12px; font-weight: 500; color: var(--text);
+    }
+    .goal-badge-done {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: rgba(245,158,11,0.14); color: var(--gold);
+      border-radius: 99px; padding: 4px 11px;
+      font-size: 12px; font-weight: 700; margin-top: 10px;
+    }
+    .goal-actions { display: flex; gap: 8px; margin-top: 13px; }
+    /* NEW: consistent small action buttons replacing btn-delete abuse */
+    .btn-sm {
+      flex: 1; padding: 10px 12px; border-radius: 10px;
+      border: 1.5px solid var(--border); background: var(--surface2);
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: all 0.15s;
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+      color: var(--muted);
+    }
+    .btn-sm.accent { color: var(--primary); border-color: rgba(99,102,241,0.35); background: rgba(99,102,241,0.07); }
+    .btn-sm.accent:hover { background: rgba(99,102,241,0.13); }
+    .btn-sm.red:hover { color: var(--danger); border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.06); }
+
+    /* ─── HOME GOAL STRIP ─────────────────────────────── */
+    .home-goal-strip {
+      background: var(--surface); border-radius: var(--radius);
+      padding: 13px 15px; margin-bottom: 10px;
+      border: 1.5px solid var(--border);
+      box-shadow: 0 1px 4px var(--shadow);
+      display: flex; align-items: center; gap: 12px;
+      cursor: pointer; transition: background 0.15s, border-color 0.15s;
+    }
+    .home-goal-strip:active { background: var(--surface2); }
+    .home-goal-strip .goal-icon-sm { font-size: 20px; flex-shrink: 0; }
+    .home-goal-strip .hg-info { flex: 1; min-width: 0; }
+    .home-goal-strip .hg-name {
+      font-size: 14px; font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .home-goal-strip .hg-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .home-goal-strip .hg-bar {
+      height: 5px; background: var(--surface2);
+      border-radius: 99px; overflow: hidden; margin-top: 7px;
+    }
+    .home-goal-strip .hg-fill { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
+    .home-goal-strip .hg-pct { font-size: 15px; font-weight: 800; flex-shrink: 0; }
+
+    /* ─── EMPTY STATE ─────────────────────────────────── */
+    .empty { text-align: center; padding: 44px 20px; color: var(--muted); }
+    .empty-icon { font-size: 44px; margin-bottom: 12px; }
+    .empty p { font-size: 15px; line-height: 1.55; }
+
+    /* ─── ACHIEVEMENTS ────────────────────────────────── */
+    .achievements-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .badge {
+      background: var(--surface); border-radius: var(--radius-sm);
+      padding: 11px 6px; text-align: center;
+      border: 1.5px solid var(--border); opacity: 0.35;
+      transition: opacity 0.3s, background 0.3s;
+    }
+    .badge.earned {
+      opacity: 1; border-color: rgba(245,158,11,0.5);
+      background: linear-gradient(135deg, rgba(245,158,11,0.12), rgba(245,158,11,0.03));
+    }
+    .badge-icon { font-size: 24px; display: block; }
+    .badge-name { font-size: 9px; color: var(--muted); margin-top: 4px; line-height: 1.25; }
+    .badge.earned .badge-name { color: var(--gold); }
+
+    /* ─── MONTHLY CALENDAR ───────────────────────────── */
+    .cal-card {
+      background: var(--surface); border-radius: var(--radius);
+      padding: 16px; border: 1.5px solid var(--border);
+      box-shadow: 0 1px 4px var(--shadow);
+    }
+    .month-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .month-nav-btn {
+      background: var(--surface2); border: 1.5px solid var(--border);
+      color: var(--text); border-radius: 9px;
+      width: 34px; height: 34px; font-size: 18px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s; font-weight: 700; line-height: 1;
+    }
+    .month-nav-btn:hover { background: var(--border); }
+    .month-nav-btn:disabled { opacity: 0.3; cursor: default; }
+    .month-title { font-size: 16px; font-weight: 700; }
+    .month-summary {
+      font-size: 11px; color: var(--muted); text-align: center;
+      margin-bottom: 12px; margin-top: 4px;
+    }
+    .cal-weekdays {
+      display: grid; grid-template-columns: repeat(7,1fr);
+      gap: 2px; margin-bottom: 4px;
+    }
+    .cal-weekday { text-align: center; font-size: 10px; color: var(--muted); padding: 3px 0; font-weight: 600; }
+    .cal-grid {
+      display: grid; grid-template-columns: repeat(7,1fr);
+      /* BUG FIX: aspect-ratio on grid children collapses row height in Safari iOS.
+         Use grid-auto-rows with a fixed height instead. */
+      grid-auto-rows: 42px; gap: 4px;
+    }
+    .cal-day {
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 600; cursor: default;
+      transition: transform 0.12s; width: 100%; height: 100%;
+    }
+    .cal-day.empty { background: transparent; pointer-events: none; }
+    .cal-day.future { background: var(--surface2); color: var(--muted); opacity: 0.4; }
+    .cal-day.none { background: var(--surface2); color: var(--muted); }
+    /* BUG FIX: use CSS-variable-based colors so partial works in both dark+light */
+    .cal-day.partial { background: var(--cal-partial-bg); color: var(--cal-partial-text); }
+    .cal-day.full { background: #22c55e; color: #fff; font-weight: 700; }
+    .cal-day.today { outline: 2px solid #fb923c; outline-offset: 1px; }
+    .cal-day.past { cursor: pointer; }
+    .cal-day.past:active { transform: scale(0.93); }
+
+    /* ─── MODAL ───────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(0,0,0,0.55);
+      display: flex; align-items: flex-end;
+      backdrop-filter: blur(6px);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.22s;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+    .modal {
+      background: var(--surface);
+      border-radius: 22px 22px 0 0;
+      padding: 0 20px 24px;
+      padding-bottom: max(24px, env(safe-area-inset-bottom));
+      width: 100%; max-height: 92dvh; overflow-y: auto;
+      transform: translateY(100%);
+      transition: transform 0.32s cubic-bezier(0.32,0.72,0,1);
+    }
+    .modal-overlay.open .modal { transform: translateY(0); }
+    .modal-handle-wrap {
+      position: sticky; top: 0; background: var(--surface);
+      padding: 12px 0 4px; z-index: 1;
+    }
+    .modal-handle {
+      width: 36px; height: 4px; background: var(--border);
+      border-radius: 99px; margin: 0 auto;
+    }
+    .modal-title { font-size: 20px; font-weight: 800; margin: 12px 0 18px; }
+
+    .form-group { margin-bottom: 15px; }
+    label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 7px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+    /* BUG FIX: add color/bg transitions to inputs for smooth theme switching */
+    input, select, textarea {
+      width: 100%; background: var(--bg); border: 1.5px solid var(--border);
+      border-radius: 12px; color: var(--text); font-size: 16px;
+      padding: 12px 14px; outline: none;
+      transition: border-color 0.2s, background 0.3s, color 0.3s;
+      -webkit-appearance: none; font-family: inherit;
+    }
+    textarea { resize: none; height: 80px; }
+    input:focus, select:focus, textarea:focus { border-color: var(--primary); }
+    input[type="date"]::-webkit-calendar-picker-indicator { opacity: 0.5; }
+
+    .emoji-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+    .emoji-btn {
+      background: var(--bg); border: 2px solid var(--border);
+      border-radius: 10px; font-size: 20px;
+      padding: 8px; cursor: pointer;
+      transition: border-color 0.12s, transform 0.12s;
+      line-height: 1;
+    }
+    .emoji-btn.selected { border-color: var(--primary); transform: scale(1.08); }
+
+    .color-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+    .color-btn {
+      aspect-ratio: 1; border-radius: 10px;
+      /* BUG FIX: use CSS variable for selected border, visible in both themes */
+      border: 3px solid transparent; cursor: pointer; transition: transform 0.12s;
+    }
+    .color-btn.selected { border-color: var(--color-btn-sel-border); transform: scale(1.1); }
+
+    .days-grid { display: flex; flex-wrap: wrap; gap: 7px; }
+    .day-btn {
+      padding: 8px 14px; border-radius: 99px;
+      border: 1.5px solid var(--border); background: var(--bg);
+      color: var(--text); font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .day-btn.selected { background: var(--primary); border-color: var(--primary); color: white; }
+
+    .med-checkbox-list { display: flex; flex-direction: column; gap: 8px; }
+    .med-checkbox {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 12px; border-radius: 12px;
+      background: var(--bg); border: 1.5px solid var(--border);
+      cursor: pointer; transition: border-color 0.15s, background 0.15s;
+    }
+    .med-checkbox.selected { border-color: var(--primary); background: rgba(99,102,241,0.07); }
+    .med-checkbox-icon { font-size: 18px; }
+    .med-checkbox-name { flex: 1; font-size: 14px; font-weight: 500; }
+    .med-checkbox-check {
+      width: 20px; height: 20px; border-radius: 6px;
+      border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; flex-shrink: 0;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .med-checkbox.selected .med-checkbox-check { background: var(--primary); border-color: var(--primary); color: white; }
+
+    .btn-primary {
+      width: 100%; padding: 15px;
+      background: linear-gradient(135deg, var(--primary), #7c3aed);
+      color: white; font-size: 16px; font-weight: 700;
+      border: none; border-radius: 13px;
+      cursor: pointer; margin-top: 8px;
+      transition: transform 0.12s, opacity 0.15s;
+    }
+    .btn-primary:active { transform: scale(0.98); opacity: 0.92; }
+
+    /* ─── BOTTOM NAV ──────────────────────────────────── */
+    .bottom-nav {
+      position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 100%; max-width: 480px;
+      background: var(--nav-bg);
+      border-top: 1px solid var(--border);
+      display: flex;
+      /* BUG FIX: nav itself pads for home indicator */
+      padding-bottom: env(safe-area-inset-bottom);
+      box-shadow: 0 -2px 12px var(--shadow);
+      transition: background 0.3s, border-color 0.3s;
+      z-index: 50;
+    }
+    .nav-btn {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 9px 4px 7px; gap: 3px;
+      background: none; border: none; cursor: pointer;
+      color: var(--muted); font-size: 10px; font-weight: 500;
+      transition: color 0.18s; position: relative;
+      min-height: var(--nav-h);
+    }
+    .nav-btn.active { color: var(--primary); }
+    /* Active indicator pill above icon */
+    .nav-btn.active::before {
+      content: '';
+      position: absolute; top: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 20px; height: 3px;
+      background: var(--primary); border-radius: 0 0 3px 3px;
+    }
+    .nav-icon { font-size: 21px; line-height: 1; }
+
+    /* ─── VIEWS ───────────────────────────────────────── */
+    .view { display: none; }
+    .view.active { display: block; }
+
+    /* ─── SHOP ────────────────────────────────────────── */
+    .shop-card {
+      background: var(--surface); border-radius: var(--radius);
+      padding: 16px; border: 1.5px solid var(--border);
+      display: flex; align-items: center; gap: 14px; margin-bottom: 10px;
+      box-shadow: 0 1px 4px var(--shadow);
+      transition: background 0.3s;
+    }
+    .shop-icon { font-size: 34px; flex-shrink: 0; }
+    .shop-info { flex: 1; min-width: 0; }
+    .shop-name { font-size: 15px; font-weight: 700; }
+    .shop-desc { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+    .shop-right { text-align: right; flex-shrink: 0; }
+    .shop-cost { font-size: 13px; font-weight: 700; color: var(--gold); margin-bottom: 6px; }
+    .btn-buy {
+      background: var(--gold); color: #0f172a;
+      font-weight: 700; font-size: 13px;
+      border: none; border-radius: 9px;
+      padding: 7px 13px; cursor: pointer; transition: opacity 0.2s;
+      white-space: nowrap;
+    }
+    .btn-buy:disabled { opacity: 0.35; cursor: default; }
+
+    /* ─── SETTINGS ────────────────────────────────────── */
+    .settings-card {
+      background: var(--surface); border-radius: var(--radius);
+      overflow: hidden; border: 1.5px solid var(--border);
+      box-shadow: 0 1px 4px var(--shadow);
+      transition: background 0.3s;
+    }
+    .settings-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 15px 16px; border-bottom: 1px solid var(--border); gap: 8px;
+    }
+    .settings-row:last-child { border-bottom: none; }
+    .settings-label { font-size: 15px; font-weight: 500; }
+    .settings-value { font-size: 13px; color: var(--muted); }
+
+    .toggle {
+      width: 44px; height: 26px; background: var(--border);
+      border-radius: 99px; position: relative; cursor: pointer;
+      transition: background 0.2s; border: none; flex-shrink: 0;
+    }
+    .toggle::after {
+      content: ''; position: absolute; top: 3px; left: 3px;
+      width: 20px; height: 20px; background: white;
+      border-radius: 50%; transition: transform 0.2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .toggle.on { background: var(--primary); }
+    .toggle.on::after { transform: translateX(18px); }
+
+    .danger-zone { margin-top: 20px; }
+    .btn-danger {
+      width: 100%; padding: 14px;
+      background: transparent; color: var(--danger);
+      font-size: 15px; font-weight: 600;
+      border: 1.5px solid rgba(239,68,68,0.4);
+      border-radius: 12px; cursor: pointer; transition: background 0.15s, border-color 0.15s;
+    }
+    .btn-danger:hover { background: rgba(239,68,68,0.08); border-color: var(--danger); }
+
+    /* ─── CONFETTI ────────────────────────────────────── */
+    .confetti-container { position: fixed; inset: 0; pointer-events: none; z-index: 200; }
+    .confetti-piece { position: absolute; animation: confetti-fall 2.5s ease-in forwards; }
+    @keyframes confetti-fall {
+      0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    }
+
+    /* ─── TOAST ───────────────────────────────────────── */
+    .toast {
+      position: fixed; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 12px); left: 50%;
+      transform: translateX(-50%) translateY(8px);
+      background: var(--surface); color: var(--text);
+      padding: 11px 18px; border-radius: 99px;
+      font-size: 14px; font-weight: 600;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+      border: 1px solid var(--border);
+      opacity: 0; transition: opacity 0.25s, transform 0.25s;
+      white-space: nowrap; z-index: 300;
+      max-width: calc(100vw - 40px); overflow: hidden; text-overflow: ellipsis;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ─── MILESTONE ───────────────────────────────────── */
+    .milestone {
+      position: fixed; inset: 0; z-index: 250;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.7);
+      opacity: 0; pointer-events: none; transition: opacity 0.25s;
+    }
+    .milestone.show { opacity: 1; pointer-events: all; }
+    .milestone-card {
+      background: var(--surface); border: 2px solid var(--gold);
+      border-radius: 24px; padding: 36px 28px; text-align: center;
+      transform: scale(0.85);
+      transition: transform 0.38s cubic-bezier(0.34,1.56,0.64,1);
+      max-width: 300px; width: 88%;
+    }
+    .milestone.show .milestone-card { transform: scale(1); }
+    .milestone-emoji { font-size: 60px; margin-bottom: 14px; display: block; }
+    .milestone-title { font-size: 26px; font-weight: 900; color: var(--gold); margin-bottom: 8px; }
+    .milestone-sub { font-size: 15px; color: var(--muted); line-height: 1.4; }
+    .milestone-btn {
+      margin-top: 22px;
+      background: var(--gold); color: #0f172a;
+      font-size: 15px; font-weight: 800;
+      border: none; border-radius: 13px;
+      padding: 13px 28px; cursor: pointer; width: 100%;
+    }
+
+    /* ─── ANIMATIONS ─────────────────────────────────── */
+    @keyframes pop {
+      0%   { transform: scale(1); }
+      45%  { transform: scale(1.12); }
+      100% { transform: scale(1); }
+    }
+    .pop { animation: pop 0.28s ease; }
+
+    /* ─── DESKTOP FRAME ──────────────────────────────── */
+    @media (min-width: 480px) {
+      body { background: var(--bg); }
+      #app {
+        border-left: 1px solid var(--border);
+        border-right: 1px solid var(--border);
+        min-height: 100vh;
+      }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-top">
+      <div>
+        <div class="app-title"><span>💊</span> MedStreak</div>
+        <div id="level-badge">Level 1 · Anfänger</div>
+      </div>
+      <div id="header-right" style="text-align:right;">
+        <div id="freeze-header" style="display:none;">
+          <div style="font-size:24px;">🛡️</div>
+          <div id="freeze-count-header" style="font-size:11px;color:rgba(255,255,255,0.7);"></div>
+        </div>
+      </div>
+    </div>
+    <div class="xp-bar-wrap">
+      <div class="xp-label">
+        <span id="xp-label">0 XP</span>
+        <span id="xp-next">100 XP zum nächsten Level</span>
+      </div>
+      <div class="xp-bar"><div class="xp-fill" id="xp-fill" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <!-- STATS ROW -->
+  <div class="stats-row">
+    <div class="stat-card fire">
+      <span class="stat-icon">🔥</span>
+      <div class="stat-value" id="stat-streak">0</div>
+      <div class="stat-label">Tages-Streak</div>
+    </div>
+    <div class="stat-card xp">
+      <span class="stat-icon">⭐</span>
+      <div class="stat-value" id="stat-xp">0</div>
+      <div class="stat-label">Gesamt-XP</div>
+    </div>
+    <div class="stat-card shield">
+      <span class="stat-icon">🛡️</span>
+      <div class="stat-value" id="stat-shields">0</div>
+      <div class="stat-label">Shields</div>
+    </div>
+  </div>
+
+  <!-- TODAY PROGRESS -->
+  <div class="today-progress" id="today-progress" style="display:none;">
+    <svg width="56" height="56" viewBox="0 0 56 56">
+      <circle class="progress-ring-bg" cx="28" cy="28" r="24"/>
+      <circle class="progress-ring-fill" id="ring-fill" cx="28" cy="28" r="24"
+        stroke-dasharray="150.8" stroke-dashoffset="150.8"/>
+    </svg>
+    <div class="today-text">
+      <div class="today-title" id="today-title">0/0 Medikamente</div>
+      <div class="today-sub" id="today-sub">Noch nichts eingenommen</div>
+    </div>
+  </div>
+
+  <!-- ── VIEW: HEUTE ─────────────────────────────────── -->
+  <div id="view-home" class="view active">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Meine Medikamente</div>
+        <div class="section-actions">
+          <button class="btn-ghost" onclick="openRetroModal()">📅 Nachtragen</button>
+          <button class="btn-ghost" onclick="openAddMedModal()">+ Hinzufügen</button>
+        </div>
+      </div>
+      <div id="meds-list">
+        <div class="empty">
+          <div class="empty-icon">💊</div>
+          <p>Noch keine Medikamente.<br>Füge dein erstes hinzu!</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" id="home-goals-section" style="display:none;">
+      <div class="section-header">
+        <div class="section-title">Meine Ziele</div>
+        <button class="btn-ghost" onclick="switchView('goals', document.querySelectorAll('.nav-btn')[1])">Alle →</button>
+      </div>
+      <div id="home-goals-list"></div>
+    </div>
+  </div>
+
+  <!-- ── VIEW: ZIELE ─────────────────────────────────── -->
+  <div id="view-goals" class="view">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Meine Ziele</div>
+        <button class="btn-ghost" onclick="openAddGoalModal()">+ Hinzufügen</button>
+      </div>
+      <div id="goals-list">
+        <div class="empty">
+          <div class="empty-icon">🎯</div>
+          <p>Noch keine Ziele definiert.<br>Was möchtest du mit deinen Meds erreichen?</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── VIEW: STATISTIK ─────────────────────────────── -->
+  <div id="view-stats" class="view">
+    <div class="section">
+      <div class="cal-card">
+        <div class="month-nav">
+          <button class="month-nav-btn" id="cal-prev" onclick="shiftCalMonth(-1)">‹</button>
+          <div class="month-title" id="cal-month-title"></div>
+          <button class="month-nav-btn" id="cal-next" onclick="shiftCalMonth(1)">›</button>
+        </div>
+        <div class="month-summary" id="cal-summary"></div>
+        <div class="cal-weekdays">
+          <div class="cal-weekday">Mo</div><div class="cal-weekday">Di</div>
+          <div class="cal-weekday">Mi</div><div class="cal-weekday">Do</div>
+          <div class="cal-weekday">Fr</div><div class="cal-weekday">Sa</div>
+          <div class="cal-weekday">So</div>
+        </div>
+        <div class="cal-grid" id="cal-grid"></div>
+      </div>
+    </div>
+
+    <div class="section" id="stats-goals-section">
+      <div class="section-header"><div class="section-title">Zielfortschritt</div></div>
+      <div id="stats-goals-list"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-header"><div class="section-title">Achievements</div></div>
+      <div class="achievements-grid" id="achievements-grid"></div>
+    </div>
+
+    <div class="section last">
+      <div class="section-header"><div class="section-title">Statistiken</div></div>
+      <div class="settings-card" id="stats-detail"></div>
+    </div>
+  </div>
+
+  <!-- ── VIEW: SHOP ──────────────────────────────────── -->
+  <div id="view-shop" class="view">
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Shop</div>
+        <div style="font-size:13px;font-weight:700;color:var(--gold);">⭐ <span id="shop-xp">0</span> XP</div>
+      </div>
+      <div class="shop-card">
+        <div class="shop-icon">🛡️</div>
+        <div class="shop-info">
+          <div class="shop-name">Streak Shield</div>
+          <div class="shop-desc">Schützt deinen Streak für einen verpassten Tag.</div>
+        </div>
+        <div class="shop-right">
+          <div class="shop-cost">⭐ 200</div>
+          <button class="btn-buy" id="buy-shield-btn" onclick="buyShield()">Kaufen</button>
+        </div>
+      </div>
+      <div class="shop-card">
+        <div class="shop-icon">✨</div>
+        <div class="shop-info">
+          <div class="shop-name">XP-Boost (2×)</div>
+          <div class="shop-desc">Doppelte XP für den nächsten Tag.</div>
+        </div>
+        <div class="shop-right">
+          <div class="shop-cost">⭐ 150</div>
+          <button class="btn-buy" id="buy-boost-btn" onclick="buyBoost()">Kaufen</button>
+        </div>
+      </div>
+    </div>
+    <div class="section last">
+      <div class="section-header"><div class="section-title">Inventar</div></div>
+      <div class="settings-card">
+        <div class="settings-row">
+          <div><div class="settings-label">🛡️ Streak Shields</div><div class="settings-value">Schütze deinen Streak</div></div>
+          <div id="inv-shields" style="font-size:18px;font-weight:800;">0</div>
+        </div>
+        <div class="settings-row">
+          <div><div class="settings-label">✨ XP-Boost</div><div class="settings-value">Verbleibende Tage</div></div>
+          <div id="inv-boost" style="font-size:18px;font-weight:800;">0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── VIEW: EINSTELLUNGEN ─────────────────────────── -->
+  <div id="view-settings" class="view">
+    <div class="section">
+      <div class="section-header"><div class="section-title">Einstellungen</div></div>
+      <div class="settings-card">
+        <div class="settings-row">
+          <div class="settings-label">🌙 Dunkler Modus</div>
+          <button class="toggle" id="theme-toggle" onclick="toggleTheme()"></button>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">🔔 Erinnerungen</div>
+          <button class="toggle" id="notif-toggle" onclick="toggleNotifications()"></button>
+        </div>
+        <div class="settings-row">
+          <div class="settings-label">App-Version</div>
+          <div class="settings-value">1.2.0</div>
+        </div>
+      </div>
+    </div>
+    <div class="section last danger-zone">
+      <div class="section-header">
+        <div class="section-title" style="color:var(--danger);">Gefahrenzone</div>
+      </div>
+      <button class="btn-danger" onclick="resetAll()">Alle Daten zurücksetzen</button>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" onclick="switchView('home',this)">
+      <span class="nav-icon">🏠</span>Heute
+    </button>
+    <button class="nav-btn" onclick="switchView('goals',this)">
+      <span class="nav-icon">🎯</span>Ziele
+    </button>
+    <button class="nav-btn" onclick="switchView('stats',this)">
+      <span class="nav-icon">📊</span>Statistik
+    </button>
+    <button class="nav-btn" onclick="switchView('shop',this)">
+      <span class="nav-icon">🛒</span>Shop
+    </button>
+    <button class="nav-btn" onclick="switchView('settings',this)">
+      <span class="nav-icon">⚙️</span>Einstellungen
+    </button>
+  </nav>
+</div>
+
+<!-- MODAL: MEDIKAMENT HINZUFÜGEN -->
+<div class="modal-overlay" id="add-med-modal" onclick="maybeCloseModal(event,'add-med-modal')">
+  <div class="modal">
+    <div class="modal-handle-wrap"><div class="modal-handle"></div></div>
+    <div class="modal-title">Medikament hinzufügen</div>
+    <div class="form-group">
+      <label>Name</label>
+      <input type="text" id="med-input-name" placeholder="z.B. Aspirin" maxlength="30" />
+    </div>
+    <div class="form-group">
+      <label>Dosis</label>
+      <input type="text" id="med-input-dose" placeholder="z.B. 100 mg" maxlength="20" />
+    </div>
+    <div class="form-group">
+      <label>Uhrzeit</label>
+      <input type="time" id="med-input-time" value="08:00" />
+    </div>
+    <div class="form-group">
+      <label>Frequenz</label>
+      <select id="med-input-freq">
+        <option value="daily">Täglich</option>
+        <option value="weekdays">Mo–Fr</option>
+        <option value="weekends">Sa–So</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Icon</label>
+      <div class="emoji-grid" id="med-emoji-grid"></div>
+    </div>
+    <div class="form-group">
+      <label>Farbe</label>
+      <div class="color-grid" id="med-color-grid"></div>
+    </div>
+    <button class="btn-primary" onclick="saveMed()">Speichern</button>
+  </div>
+</div>
+
+<!-- MODAL: ZIEL HINZUFÜGEN -->
+<div class="modal-overlay" id="add-goal-modal" onclick="maybeCloseModal(event,'add-goal-modal')">
+  <div class="modal">
+    <div class="modal-handle-wrap"><div class="modal-handle"></div></div>
+    <div class="modal-title" id="goal-modal-title">Ziel definieren</div>
+    <div class="form-group">
+      <label>Ziel-Name</label>
+      <input type="text" id="goal-input-name" placeholder="z.B. Blutdruck senken" maxlength="40" />
+    </div>
+    <div class="form-group">
+      <label>Beschreibung (optional)</label>
+      <textarea id="goal-input-desc" placeholder="Warum ist dieses Ziel wichtig für dich?"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Icon</label>
+      <div class="emoji-grid" id="goal-emoji-grid"></div>
+    </div>
+    <div class="form-group">
+      <label>Farbe</label>
+      <div class="color-grid" id="goal-color-grid"></div>
+    </div>
+    <div class="form-group">
+      <label>Ziel-Zeitraum</label>
+      <div class="days-grid" id="goal-days-grid"></div>
+    </div>
+    <div class="form-group" id="goal-meds-group">
+      <label>Verknüpfte Medikamente</label>
+      <div class="med-checkbox-list" id="goal-meds-list"></div>
+    </div>
+    <button class="btn-primary" onclick="saveGoal()">Ziel speichern</button>
+  </div>
+</div>
+
+<!-- MILESTONE POPUP -->
+<div class="milestone" id="milestone-popup" onclick="closeMilestone()">
+  <div class="milestone-card">
+    <span class="milestone-emoji" id="milestone-emoji">🎉</span>
+    <div class="milestone-title" id="milestone-title">Super!</div>
+    <div class="milestone-sub" id="milestone-sub"></div>
+    <button class="milestone-btn" onclick="closeMilestone()">Weiter so! 💪</button>
+  </div>
+</div>
+
+<!-- MODAL: NACHTRAGEN -->
+<div class="modal-overlay" id="retro-modal" onclick="maybeCloseModal(event,'retro-modal')">
+  <div class="modal">
+    <div class="modal-handle-wrap"><div class="modal-handle"></div></div>
+    <div class="modal-title">Einnahme nachtragen</div>
+    <div class="form-group">
+      <label>Datum</label>
+      <input type="date" id="retro-date" onchange="renderRetroMeds()" />
+    </div>
+    <div class="form-group">
+      <label>Medikamente</label>
+      <div id="retro-meds-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+    </div>
+    <button class="btn-primary" onclick="saveRetro()">Speichern</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="confetti-container" id="confetti-container"></div>
+
+<script>
+// ─── CONSTANTS ───────────────────────────────────────────
+const STORAGE_KEY = 'medstreak_v3';
+
+const MED_EMOJIS  = ['💊','🌿','💉','🩺','❤️','🧪','🫀','🦷','🧬','👁️','🩹','🫁'];
+const GOAL_EMOJIS = ['🎯','❤️','🧠','💪','😴','🏃','🩸','🫁','👁️','🦷','⚡','🌟','🌈','🌱','🏥','🩻'];
+const COLORS = ['#6366f1','#8b5cf6','#ec4899','#f43f5e','#f59e0b','#10b981','#06b6d4','#3b82f6','#84cc16','#f97316','#e11d48','#7c3aed'];
+const TARGET_DAYS_OPTIONS = [7, 14, 21, 30, 60, 90];
+
+const LEVELS = [
+  { name:'Anfänger', min:0 },{ name:'Lernender', min:100 },
+  { name:'Beständig', min:300 },{ name:'Engagiert', min:600 },
+  { name:'Zuverlässig', min:1000 },{ name:'Fortgeschritten', min:1500 },
+  { name:'Meister', min:2500 },{ name:'Legende', min:4000 },
+];
+
+const ACHIEVEMENTS = [
+  { id:'first',    icon:'🌟', name:'Erste Dosis',  check: s => s.xp >= 10 },
+  { id:'streak3',  icon:'🔥', name:'3-Tage-Streak', check: s => s.streak >= 3 },
+  { id:'streak7',  icon:'🎯', name:'1 Woche',       check: s => s.streak >= 7 },
+  { id:'streak14', icon:'💫', name:'2 Wochen',      check: s => s.streak >= 14 },
+  { id:'streak30', icon:'👑', name:'1 Monat',       check: s => s.streak >= 30 },
+  { id:'streak100',icon:'🏆', name:'100 Tage!',     check: s => s.streak >= 100 },
+  { id:'xp500',    icon:'⭐', name:'500 XP',        check: s => s.xp >= 500 },
+  { id:'xp1000',   icon:'💎', name:'1000 XP',       check: s => s.xp >= 1000 },
+  { id:'meds3',    icon:'🧪', name:'3 Meds',        check: s => s.meds.length >= 3 },
+  { id:'shield',   icon:'🛡️', name:'Beschützt',     check: s => s.shields > 0 },
+  { id:'goal1',    icon:'🎯', name:'Erstes Ziel',   check: s => s.goals && s.goals.length >= 1 },
+  { id:'goalDone', icon:'🥇', name:'Ziel erreicht', check: s => anyGoalComplete(s) },
+  { id:'perfect',  icon:'💯', name:'Perfekter Tag', check: s => anyPerfectDay(s) },
+];
+
+// ─── STATE ───────────────────────────────────────────────
+let state = {
+  meds: [], goals: [], log: {},
+  xp: 0, shields: 0, boostDays: 0, streak: 0,
+  lastCheckDate: null,
+  settings: { notifications: false, theme: 'dark' },
+  earnedAchievements: [],
+  shieldsUsed: 0,
+};
+
+// ─── PERSISTENCE ─────────────────────────────────────────
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) state = { ...state, ...JSON.parse(raw) };
+  } catch(e) {}
+  if (!state.goals) state.goals = [];
+  if (!state.earnedAchievements) state.earnedAchievements = [];
+  if (!state.settings) state.settings = { notifications: false, theme: 'dark' };
+  if (!state.settings.theme) state.settings.theme = 'dark';
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+// ─── DATE UTILS ──────────────────────────────────────────
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+function dateStr(d) { return d.toISOString().split('T')[0]; }
+function getLog(date) { return state.log[date] || {}; }
+function setLog(date, medId, value) {
+  if (!state.log[date]) state.log[date] = {};
+  state.log[date][medId] = value;
+}
+
+// ─── STREAK ──────────────────────────────────────────────
+function computeStreak() {
+  if (state.meds.length === 0) { state.streak = 0; return; }
+  let streak = 0;
+  const d = new Date();
+  const today = todayStr();
+  const todayLog = getLog(today);
+  const todayDone = state.meds.every(m => todayLog[m.id]);
+  if (!todayDone) d.setDate(d.getDate() - 1);
+
+  for (let i = 0; i < 365; i++) {
+    const ds = dateStr(d);
+    const log = getLog(ds);
+    if (state.meds.every(m => log[m.id])) {
+      streak++; d.setDate(d.getDate() - 1);
+    } else if (log['__shield__']) {
+      streak++; d.setDate(d.getDate() - 1);
+    } else break;
+  }
+  state.streak = streak;
+}
+
+// ─── XP & LEVEL ──────────────────────────────────────────
+function getLevel(xp) {
+  let l = 0;
+  for (let i = LEVELS.length - 1; i >= 0; i--) {
+    if (xp >= LEVELS[i].min) { l = i; break; }
+  }
+  return l;
+}
+
+function getLevelInfo(xp) {
+  const lvl = getLevel(xp);
+  const cur = LEVELS[lvl], nxt = LEVELS[lvl + 1];
+  const base = cur.min, cap = nxt ? nxt.min : base + 1000;
+  const pct = Math.min(100, ((xp - base) / (cap - base)) * 100);
+  return { lvl: lvl + 1, name: cur.name, pct, xpInLevel: xp - base, xpNeeded: cap - base, next: nxt?.name };
+}
+
+function awardXP(amount) {
+  const mult = state.boostDays > 0 ? 2 : 1;
+  const bonus = amount * mult;
+  const oldLvl = getLevel(state.xp);
+  state.xp += bonus;
+  const newLvl = getLevel(state.xp);
+  if (newLvl > oldLvl) {
+    setTimeout(() => { showMilestone('🎊', `Level ${newLvl + 1}!`, `Du bist jetzt "${LEVELS[newLvl].name}"!`); launchConfetti(); }, 600);
+  }
+  return bonus;
+}
+
+// ─── GOAL PROGRESS ───────────────────────────────────────
+function getGoalProgress(goal) {
+  if (!goal.linkedMeds || goal.linkedMeds.length === 0) return { done: 0, pct: 0 };
+  const today = new Date();
+  let count = 0;
+  for (let i = 0; i < goal.targetDays; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    const ds = dateStr(d);
+    if (ds > todayStr()) continue;
+    const log = getLog(ds);
+    if (goal.linkedMeds.every(id => log[id])) count++;
+  }
+  const pct = Math.round((count / goal.targetDays) * 100);
+  return { done: count, pct };
+}
+
+function anyGoalComplete(s) {
+  return (s.goals || []).some(g => getGoalProgress(g).pct >= 100);
+}
+
+function anyPerfectDay(s) {
+  const today = todayStr();
+  return Object.entries(s.log || {}).some(([date, log]) => {
+    if (date > today) return false;
+    return s.meds.length > 0 && s.meds.every(m => log[m.id]);
+  });
+}
+
+// ─── RENDER ──────────────────────────────────────────────
+function render() {
+  computeStreak();
+  renderHeader();
+  renderStats();
+  renderMeds();
+  renderHomeGoals();
+  renderTodayProgress();
+  renderGoals();
+  renderAchievements();
+  renderStatsGoals();
+  renderStatsDetail();
+  renderShop();
+  checkAllAchievements();
+  saveState();
+}
+
+function renderHeader() {
+  const info = getLevelInfo(state.xp);
+  document.getElementById('level-badge').textContent = `Level ${info.lvl} · ${info.name}`;
+  document.getElementById('xp-fill').style.width = info.pct + '%';
+  document.getElementById('xp-label').textContent = `${state.xp} XP`;
+  document.getElementById('xp-next').textContent = info.next
+    ? `${info.xpNeeded - info.xpInLevel} XP bis "${info.next}"`
+    : 'Max Level! 🏆';
+  const fh = document.getElementById('freeze-header');
+  if (state.shields > 0) {
+    fh.style.display = 'block';
+    document.getElementById('freeze-count-header').textContent = `×${state.shields}`;
+  } else { fh.style.display = 'none'; }
+}
+
+function renderStats() {
+  document.getElementById('stat-streak').textContent = state.streak;
+  document.getElementById('stat-xp').textContent = state.xp;
+  document.getElementById('stat-shields').textContent = state.shields;
+}
+
+function renderMeds() {
+  const list = document.getElementById('meds-list');
+  const today = todayStr();
+  const log = getLog(today);
+  if (state.meds.length === 0) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">💊</div><p>Noch keine Medikamente.<br>Füge dein erstes hinzu!</p></div>`;
+    return;
+  }
+  list.innerHTML = state.meds.map(med => {
+    const done = !!log[med.id];
+    return `
+    <div class="med-card ${done ? 'done' : ''}" id="card-${med.id}">
+      <div class="med-card-top">
+        <div class="med-icon" style="background:${med.color}22;">${med.emoji}</div>
+        <div class="med-info">
+          <div class="med-name">${esc(med.name)}</div>
+          <div class="med-meta">${[med.dose, med.time, freqLabel(med.freq)].filter(Boolean).join(' · ')}</div>
+        </div>
+        <div class="med-streak">🔥 ${getMedStreak(med.id)}</div>
+      </div>
+      <div class="streak-mini">${getLast7Dots(med.id, today)}</div>
+      <div class="med-actions">
+        <button class="btn-take ${done ? 'done' : ''}"
+          onclick="takeMed('${med.id}')" ${done ? 'disabled' : ''}>
+          ${done ? '✅ Eingenommen' : '💊 Einnehmen'}
+        </button>
+        <button class="btn-icon" onclick="deleteMed('${med.id}')" title="Löschen">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function sortedGoals() {
+  return [...(state.goals || [])].sort((a, b) => {
+    const { done: dA, pct: pA } = getGoalProgress(a);
+    const { done: dB, pct: pB } = getGoalProgress(b);
+    // Completed goals always go to the end
+    const remA = pA >= 100 ? Infinity : a.targetDays - dA;
+    const remB = pB >= 100 ? Infinity : b.targetDays - dB;
+    return remA - remB;
+  });
+}
+
+function renderHomeGoals() {
+  const sec = document.getElementById('home-goals-section');
+  const list = document.getElementById('home-goals-list');
+  if (!state.goals || state.goals.length === 0) { sec.style.display = 'none'; return; }
+  sec.style.display = 'block';
+  list.innerHTML = sortedGoals().map(goal => {
+    const { done, pct } = getGoalProgress(goal);
+    return `
+    <div class="home-goal-strip" onclick="switchView('goals', document.querySelectorAll('.nav-btn')[1])">
+      <div class="goal-icon-sm">${goal.emoji}</div>
+      <div class="hg-info">
+        <div class="hg-name">${esc(goal.name)}</div>
+        <div class="hg-sub">${done} von ${goal.targetDays} Tagen · ${pct}%</div>
+        <div class="hg-bar"><div class="hg-fill" style="width:${pct}%;background:${goal.color};"></div></div>
+      </div>
+      <div class="hg-pct" style="color:${goal.color};">${pct}%</div>
+    </div>`;
+  }).join('');
+}
+
+function renderTodayProgress() {
+  const today = todayStr();
+  const log = getLog(today);
+  const total = state.meds.length;
+  if (total === 0) { document.getElementById('today-progress').style.display = 'none'; return; }
+  const done = state.meds.filter(m => log[m.id]).length;
+  const pct = done / total;
+  document.getElementById('today-progress').style.display = 'flex';
+  document.getElementById('ring-fill').style.strokeDashoffset = 150.8 - pct * 150.8;
+  document.getElementById('today-title').textContent = `${done}/${total} Medikamente`;
+  document.getElementById('today-sub').textContent =
+    done === 0 ? 'Noch nichts eingenommen' :
+    done === total ? 'Alle eingenommen! 🎉' :
+    `Noch ${total - done} offen`;
+}
+
+function renderGoals() {
+  const list = document.getElementById('goals-list');
+  if (!list) return;
+  if (!state.goals || state.goals.length === 0) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">🎯</div><p>Noch keine Ziele definiert.<br>Was möchtest du mit deinen Meds erreichen?</p></div>`;
+    return;
+  }
+  list.innerHTML = sortedGoals().map(goal => {
+    const { done, pct } = getGoalProgress(goal);
+    const complete = pct >= 100;
+    const linkedMeds = (goal.linkedMeds || []).map(id => state.meds.find(m => m.id === id)).filter(Boolean);
+    return `
+    <div class="goal-card ${complete ? 'complete' : ''}">
+      <div class="goal-top">
+        <div class="goal-icon" style="background:${goal.color}22;">${goal.emoji}</div>
+        <div class="goal-info">
+          <div class="goal-name">${esc(goal.name)}</div>
+          ${goal.desc ? `<div class="goal-desc">${esc(goal.desc)}</div>` : ''}
+        </div>
+        <div class="goal-pct" style="color:${goal.color};">${pct}%</div>
+      </div>
+      <div class="goal-progress-wrap">
+        <div class="goal-progress-bar">
+          <div class="goal-progress-fill" style="width:${pct}%;background:${goal.color};"></div>
+        </div>
+        <div class="goal-progress-label">
+          <span>${done} von ${goal.targetDays} Tagen</span>
+          <span>${goal.targetDays - done > 0 ? `${goal.targetDays - done} Tage verbleibend` : 'Geschafft! 🎉'}</span>
+        </div>
+      </div>
+      ${linkedMeds.length > 0 ? `
+        <div class="goal-meds">
+          ${linkedMeds.map(m => `<div class="goal-med-chip">${m.emoji} ${esc(m.name)}</div>`).join('')}
+        </div>` : ''}
+      ${complete ? `<div class="goal-badge-done">🥇 Ziel erreicht!</div>` : ''}
+      <div class="goal-actions">
+        <button class="btn-sm accent" onclick="openEditGoalModal('${goal.id}')">✏️ Bearbeiten</button>
+        <button class="btn-sm red" onclick="deleteGoal('${goal.id}')">🗑️ Löschen</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderStatsGoals() {
+  const sec = document.getElementById('stats-goals-section');
+  const list = document.getElementById('stats-goals-list');
+  if (!sec || !list) return;
+  if (!state.goals || state.goals.length === 0) { sec.style.display = 'none'; return; }
+  sec.style.display = 'block';
+  list.innerHTML = state.goals.map(goal => {
+    const { done, pct } = getGoalProgress(goal);
+    return `
+    <div style="background:var(--surface);border-radius:var(--radius-sm);padding:14px;margin-bottom:8px;border:1px solid var(--border);">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <span style="font-size:20px;">${goal.emoji}</span>
+        <div style="flex:1;">
+          <div style="font-weight:700;font-size:15px;">${esc(goal.name)}</div>
+          <div style="font-size:12px;color:var(--muted);">${done}/${goal.targetDays} Tage konsistent</div>
+        </div>
+        <div style="font-weight:800;color:${goal.color};">${pct}%</div>
+      </div>
+      <div style="height:8px;background:var(--surface2);border-radius:99px;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:${goal.color};border-radius:99px;transition:width 0.6s ease;"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function shiftCalMonth(dir) {
+  calMonth += dir;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  if (calMonth < 0)  { calMonth = 11; calYear--; }
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const grid = document.getElementById('cal-grid');
+  const titleEl = document.getElementById('cal-month-title');
+  const summaryEl = document.getElementById('cal-summary');
+  const nextBtn = document.getElementById('cal-next');
+  if (!grid) return;
+
+  const todayDs = todayStr();
+  const now = new Date();
+  const isCurrentMonth = calYear === now.getFullYear() && calMonth === now.getMonth();
+  if (nextBtn) nextBtn.disabled = isCurrentMonth;
+
+  const monthNames = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+  if (titleEl) titleEl.textContent = `${monthNames[calMonth]} ${calYear}`;
+
+  const firstDay = new Date(calYear, calMonth, 1);
+  const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+  const startDow = (firstDay.getDay() + 6) % 7; // 0=Mon
+  const total = state.meds.length;
+
+  let perfectDays = 0, activeDays = 0;
+  let html = '';
+
+  // Leading empty cells
+  for (let i = 0; i < startDow; i++) html += `<div class="cal-day empty"></div>`;
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(calYear, calMonth, d);
+    const ds = dateStr(date);
+    const isToday = ds === todayDs;
+    const isFuture = ds > todayDs;
+
+    if (isFuture) {
+      html += `<div class="cal-day future ${isToday ? 'today' : ''}">${d}</div>`;
+      continue;
+    }
+
+    const log = getLog(ds);
+    const done = total === 0 ? 0 : state.meds.filter(m => log[m.id]).length;
+    let cls = 'none';
+    if (total > 0) {
+      if (done === total) { cls = 'full'; perfectDays++; activeDays++; }
+      else if (done > 0) { cls = 'partial'; activeDays++; }
+    }
+
+    html += `<div class="cal-day past ${cls} ${isToday ? 'today' : ''}"
+      title="${ds}: ${done}/${total} Medikamente"
+      onclick="openRetroForDate('${ds}')">${d}</div>`;
+  }
+
+  grid.innerHTML = html;
+
+  if (summaryEl) {
+    if (total === 0) {
+      summaryEl.textContent = 'Noch keine Medikamente angelegt';
+    } else {
+      const pastDays = isCurrentMonth ? now.getDate() : daysInMonth;
+      summaryEl.textContent = `${perfectDays} vollständige Tage · ${activeDays} aktive Tage · ${pastDays} vergangen`;
+    }
+  }
+}
+
+function renderAchievements() {
+  const grid = document.getElementById('achievements-grid');
+  if (!grid) return;
+  grid.innerHTML = ACHIEVEMENTS.map(a => `
+    <div class="badge ${state.earnedAchievements.includes(a.id) ? 'earned' : ''}" title="${a.name}">
+      <span class="badge-icon">${a.icon}</span>
+      <div class="badge-name">${a.name}</div>
+    </div>`).join('');
+}
+
+function renderStatsDetail() {
+  const el = document.getElementById('stats-detail');
+  if (!el) return;
+  const today = todayStr();
+  const perfectDays = Object.entries(state.log).filter(([d, log]) =>
+    d <= today && state.meds.length > 0 && state.meds.every(m => log[m.id])
+  ).length;
+  const totalDoses = Object.values(state.log).reduce((s, day) =>
+    s + Object.values(day).filter(v => v === true).length, 0);
+  el.innerHTML = `
+    <div class="settings-row"><div class="settings-label">Perfekte Tage</div><div style="font-weight:700;">${perfectDays}</div></div>
+    <div class="settings-row"><div class="settings-label">Gesamte Dosen</div><div style="font-weight:700;">${totalDoses}</div></div>
+    <div class="settings-row"><div class="settings-label">Längster Streak</div><div style="font-weight:700;">${state.streak} Tage</div></div>
+    <div class="settings-row"><div class="settings-label">Ziele erreicht</div><div style="font-weight:700;">${(state.goals||[]).filter(g=>getGoalProgress(g).pct>=100).length}</div></div>`;
+}
+
+function renderShop() {
+  const el = document.getElementById('shop-xp');
+  if (el) el.textContent = state.xp;
+  const si = document.getElementById('inv-shields');
+  if (si) si.textContent = state.shields;
+  const bi = document.getElementById('inv-boost');
+  if (bi) bi.textContent = state.boostDays;
+  const shBtn = document.getElementById('buy-shield-btn');
+  if (shBtn) shBtn.disabled = state.xp < 200;
+  const boBtn = document.getElementById('buy-boost-btn');
+  if (boBtn) boBtn.disabled = state.xp < 150;
+}
+
+// ─── ACTIONS ─────────────────────────────────────────────
+function takeMed(medId) {
+  const today = todayStr();
+  if (getLog(today)[medId]) return;
+  setLog(today, medId, true);
+
+  const earned = awardXP(10);
+  const card = document.getElementById('card-' + medId);
+  if (card) { card.classList.add('pop'); setTimeout(() => card.classList.remove('pop'), 300); }
+
+  // Check which goals this med contributes to
+  const affectedGoals = (state.goals || []).filter(g => g.linkedMeds && g.linkedMeds.includes(medId));
+  let goalMsg = '';
+  if (affectedGoals.length > 0) {
+    goalMsg = ' · ' + affectedGoals.map(g => g.emoji + ' +1').join(' ');
+  }
+  showToast(`+${earned} XP ⭐${goalMsg}`);
+
+  // Check all done
+  const allDone = state.meds.every(m => getLog(today)[m.id]);
+  if (allDone) {
+    awardXP(20);
+    launchConfetti();
+    setTimeout(() => {
+      computeStreak();
+      const s = state.streak;
+      if (s > 0 && (s % 7 === 0 || [30, 50, 100].includes(s))) {
+        showMilestone('🔥', `${s}-Tage-Streak!`, 'Du bist auf dem besten Weg zu deinen Zielen!');
+      } else {
+        showToast(`🎉 Alle erledigt! +20 XP Bonus!`);
+      }
+    }, 400);
+
+    // Check if any goal newly completed
+    (state.goals || []).forEach(g => {
+      const { pct } = getGoalProgress(g);
+      if (pct >= 100 && !state.earnedAchievements.includes('goal_' + g.id)) {
+        state.earnedAchievements.push('goal_' + g.id);
+        setTimeout(() => {
+          showMilestone(g.emoji, `Ziel erreicht!`, `"${g.name}" — Du hast dein Ziel geschafft! 🥳`);
+          launchConfetti();
+        }, 800);
+      }
+    });
+  }
+
+  render();
+}
+
+function deleteMed(id) {
+  if (!confirm('Dieses Medikament wirklich löschen?')) return;
+  state.meds = state.meds.filter(m => m.id !== id);
+  state.goals = (state.goals || []).map(g => ({ ...g, linkedMeds: (g.linkedMeds || []).filter(mid => mid !== id) }));
+  render();
+}
+
+function deleteGoal(id) {
+  if (!confirm('Dieses Ziel wirklich löschen?')) return;
+  state.goals = (state.goals || []).filter(g => g.id !== id);
+  render();
+}
+
+function buyShield() {
+  if (state.xp < 200) { showToast('Zu wenig XP!'); return; }
+  state.xp -= 200; state.shields++;
+  showToast('🛡️ Shield gekauft!'); render();
+}
+
+function buyBoost() {
+  if (state.xp < 150) { showToast('Zu wenig XP!'); return; }
+  state.xp -= 150; state.boostDays++;
+  showToast('✨ XP-Boost aktiv!'); render();
+}
+
+function resetAll() {
+  if (!confirm('Wirklich ALLE Daten löschen?')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  state = { meds:[], goals:[], log:{}, xp:0, shields:0, boostDays:0, streak:0, lastCheckDate:null, settings:{notifications:false,theme:'dark'}, earnedAchievements:[], shieldsUsed:0 };
+  applyTheme('dark');
+  render();
+  showToast('Alles zurückgesetzt.');
+}
+
+// ─── ACHIEVEMENTS ─────────────────────────────────────────
+function checkAllAchievements() {
+  const prev = [...state.earnedAchievements];
+  ACHIEVEMENTS.forEach(a => {
+    if (!state.earnedAchievements.includes(a.id) && a.check(state)) {
+      state.earnedAchievements.push(a.id);
+    }
+  });
+  ACHIEVEMENTS.forEach(a => {
+    if (!prev.includes(a.id) && state.earnedAchievements.includes(a.id)) {
+      setTimeout(() => { showMilestone(a.icon, a.name, 'Achievement freigeschaltet!'); launchConfetti(); }, 700);
+    }
+  });
+}
+
+// ─── MED MODAL ───────────────────────────────────────────
+let selectedMedEmoji = '💊', selectedMedColor = '#6366f1';
+let selectedGoalEmoji = '🎯', selectedGoalColor = '#6366f1';
+let selectedGoalDays = 30, selectedGoalMeds = new Set();
+let editingGoalId = null;
+let calYear = new Date().getFullYear(), calMonth = new Date().getMonth();
+let retroPreviousLog = {};
+
+function openAddMedModal() {
+  selectedMedEmoji = '💊'; selectedMedColor = '#6366f1';
+  buildEmojiGrid('med-emoji-grid', MED_EMOJIS, selectedMedEmoji, 'Med');
+  buildColorGrid('med-color-grid', selectedMedColor, 'Med');
+  ['med-input-name','med-input-dose'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('med-input-time').value = '08:00';
+  document.getElementById('med-input-freq').value = 'daily';
+  openModal('add-med-modal');
+  setTimeout(() => document.getElementById('med-input-name').focus(), 300);
+}
+
+function saveMed() {
+  const name = document.getElementById('med-input-name').value.trim();
+  if (!name) { document.getElementById('med-input-name').focus(); return; }
+  state.meds.push({
+    id: 'med_' + Date.now(),
+    name, dose: document.getElementById('med-input-dose').value.trim(),
+    time: document.getElementById('med-input-time').value,
+    freq: document.getElementById('med-input-freq').value,
+    emoji: selectedMedEmoji, color: selectedMedColor,
+    createdAt: new Date().toISOString()
+  });
+  closeModal('add-med-modal');
+  render();
+  showToast(`${selectedMedEmoji} ${name} hinzugefügt!`);
+}
+
+// ─── GOAL MODAL ──────────────────────────────────────────
+function openAddGoalModal() {
+  editingGoalId = null;
+  document.getElementById('goal-modal-title').textContent = 'Ziel definieren';
+  _openGoalModal({ emoji:'🎯', color:'#6366f1', targetDays:30, linkedMeds:[], name:'', desc:'' });
+}
+
+function openEditGoalModal(goalId) {
+  editingGoalId = goalId;
+  document.getElementById('goal-modal-title').textContent = 'Ziel bearbeiten';
+  const goal = state.goals.find(g => g.id === goalId);
+  if (!goal) return;
+  _openGoalModal(goal);
+}
+
+function _openGoalModal(goal) {
+  selectedGoalEmoji = goal.emoji || '🎯';
+  selectedGoalColor = goal.color || '#6366f1';
+  selectedGoalDays  = goal.targetDays || 30;
+  selectedGoalMeds  = new Set(goal.linkedMeds || []);
+
+  buildEmojiGrid('goal-emoji-grid', GOAL_EMOJIS, selectedGoalEmoji, 'Goal');
+  buildColorGrid('goal-color-grid', selectedGoalColor, 'Goal');
+
+  const dg = document.getElementById('goal-days-grid');
+  dg.innerHTML = TARGET_DAYS_OPTIONS.map(d =>
+    `<button class="day-btn ${d === selectedGoalDays ? 'selected' : ''}" onclick="selectGoalDays(${d}, this)">${d} Tage</button>`
+  ).join('');
+
+  const mg = document.getElementById('goal-meds-group');
+  const ml = document.getElementById('goal-meds-list');
+  if (state.meds.length === 0) {
+    mg.style.display = 'none';
+  } else {
+    mg.style.display = 'block';
+    ml.innerHTML = state.meds.map(m => {
+      const sel = selectedGoalMeds.has(m.id);
+      return `
+      <div class="med-checkbox ${sel ? 'selected' : ''}" id="mc-${m.id}" onclick="toggleGoalMed('${m.id}')">
+        <span class="med-checkbox-icon">${m.emoji}</span>
+        <span class="med-checkbox-name">${esc(m.name)}</span>
+        <div class="med-checkbox-check" id="mcc-${m.id}">${sel ? '✓' : ''}</div>
+      </div>`;
+    }).join('');
+  }
+
+  document.getElementById('goal-input-name').value = goal.name || '';
+  document.getElementById('goal-input-desc').value = goal.desc || '';
+  openModal('add-goal-modal');
+  setTimeout(() => document.getElementById('goal-input-name').focus(), 300);
+}
+
+function selectGoalDays(days, btn) {
+  selectedGoalDays = days;
+  document.querySelectorAll('#goal-days-grid .day-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
+function toggleGoalMed(medId) {
+  const el = document.getElementById('mc-' + medId);
+  const check = document.getElementById('mcc-' + medId);
+  if (selectedGoalMeds.has(medId)) {
+    selectedGoalMeds.delete(medId); el.classList.remove('selected'); check.textContent = '';
+  } else {
+    selectedGoalMeds.add(medId); el.classList.add('selected'); check.textContent = '✓';
+  }
+}
+
+function saveGoal() {
+  const name = document.getElementById('goal-input-name').value.trim();
+  if (!name) { document.getElementById('goal-input-name').focus(); return; }
+  if (!state.goals) state.goals = [];
+
+  if (editingGoalId) {
+    const idx = state.goals.findIndex(g => g.id === editingGoalId);
+    if (idx !== -1) {
+      state.goals[idx] = {
+        ...state.goals[idx],
+        name, desc: document.getElementById('goal-input-desc').value.trim(),
+        emoji: selectedGoalEmoji, color: selectedGoalColor,
+        targetDays: selectedGoalDays, linkedMeds: [...selectedGoalMeds],
+      };
+    }
+    showToast(`${selectedGoalEmoji} Ziel aktualisiert!`);
+  } else {
+    state.goals.push({
+      id: 'goal_' + Date.now(),
+      name, desc: document.getElementById('goal-input-desc').value.trim(),
+      emoji: selectedGoalEmoji, color: selectedGoalColor,
+      targetDays: selectedGoalDays, linkedMeds: [...selectedGoalMeds],
+      createdAt: new Date().toISOString()
+    });
+    showToast(`${selectedGoalEmoji} Ziel gespeichert!`);
+  }
+  editingGoalId = null;
+  closeModal('add-goal-modal');
+  render();
+}
+
+// ─── EMOJI / COLOR GRIDS ─────────────────────────────────
+function buildEmojiGrid(gridId, emojis, selected, type) {
+  document.getElementById(gridId).innerHTML = emojis.map(e =>
+    `<button class="emoji-btn ${e === selected ? 'selected' : ''}" onclick="selectEmoji('${e}','${type}',this)">${e}</button>`
+  ).join('');
+}
+
+function buildColorGrid(gridId, selected, type) {
+  document.getElementById(gridId).innerHTML = COLORS.map(c =>
+    `<div class="color-btn ${c === selected ? 'selected' : ''}" style="background:${c};" onclick="selectColor('${c}','${type}',this)"></div>`
+  ).join('');
+}
+
+function selectEmoji(e, type, btn) {
+  if (type === 'Med') selectedMedEmoji = e;
+  else selectedGoalEmoji = e;
+  btn.closest('.emoji-grid').querySelectorAll('.emoji-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
+function selectColor(c, type, el) {
+  if (type === 'Med') selectedMedColor = c;
+  else selectedGoalColor = c;
+  el.closest('.color-grid').querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+// ─── THEME ───────────────────────────────────────────────
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('theme-toggle').classList.toggle('on', theme === 'dark');
+  state.settings.theme = theme;
+}
+
+function toggleTheme() {
+  const next = state.settings.theme === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+  saveState();
+}
+
+function toggleNotifications() {
+  const btn = document.getElementById('notif-toggle');
+  state.settings.notifications = !state.settings.notifications;
+  btn.classList.toggle('on', state.settings.notifications);
+  if (state.settings.notifications && 'Notification' in window) {
+    Notification.requestPermission().then(p => {
+      if (p !== 'granted') state.settings.notifications = false;
+      btn.classList.toggle('on', state.settings.notifications);
+      saveState();
+    });
+  }
+  saveState();
+}
+
+// ─── VIEWS ───────────────────────────────────────────────
+function switchView(name, btn) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (name === 'stats') { renderCalendar(); renderAchievements(); renderStatsDetail(); renderStatsGoals(); }
+  if (name === 'shop') renderShop();
+  if (name === 'goals') renderGoals();
+}
+
+// ─── RETRO MODAL ─────────────────────────────────────────
+function openRetroForDate(ds) {
+  if (state.meds.length === 0) return;
+  const input = document.getElementById('retro-date');
+  input.value = ds;
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  input.max = dateStr(yesterday);
+  const oldest = state.meds.reduce((min, m) => m.createdAt < min ? m.createdAt : min, new Date().toISOString());
+  const limit = new Date(); limit.setDate(limit.getDate() - 90);
+  input.min = dateStr(new Date(Math.max(new Date(oldest), limit)));
+  renderRetroMeds();
+  openModal('retro-modal');
+}
+
+function openRetroModal() {
+  if (state.meds.length === 0) { showToast('Erst ein Medikament anlegen!'); return; }
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const input = document.getElementById('retro-date');
+  input.value = dateStr(yesterday);
+  input.max = dateStr(yesterday);
+  // Earliest date: createdAt of oldest med or 90 days ago
+  const oldest = state.meds.reduce((min, m) => m.createdAt < min ? m.createdAt : min, new Date().toISOString());
+  const limit = new Date(); limit.setDate(limit.getDate() - 90);
+  input.min = dateStr(new Date(Math.max(new Date(oldest), limit)));
+  renderRetroMeds();
+  openModal('retro-modal');
+}
+
+function renderRetroMeds() {
+  const ds = document.getElementById('retro-date').value;
+  const log = getLog(ds);
+  const list = document.getElementById('retro-meds-list');
+  if (!ds || state.meds.length === 0) { list.innerHTML = ''; return; }
+  retroPreviousLog = Object.fromEntries(state.meds.map(m => [m.id, !!log[m.id]]));
+  list.innerHTML = state.meds.map(m => {
+    const taken = !!log[m.id];
+    return `
+    <div class="med-checkbox ${taken ? 'selected' : ''}" id="retro-mc-${m.id}"
+         onclick="toggleRetroMed('${m.id}')">
+      <span class="med-checkbox-icon">${m.emoji}</span>
+      <div style="flex:1;">
+        <div class="med-checkbox-name">${esc(m.name)}</div>
+        <div style="font-size:12px;color:var(--muted);">${esc(m.dose || '')} · ${m.time}</div>
+      </div>
+      <div class="med-checkbox-check" id="retro-mcc-${m.id}">${taken ? '✓' : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+function toggleRetroMed(medId) {
+  const ds = document.getElementById('retro-date').value;
+  if (!ds) return;
+  if (!state.log[ds]) state.log[ds] = {};
+  const cur = !!state.log[ds][medId];
+  state.log[ds][medId] = !cur;
+  // Update UI immediately without full re-render
+  const el = document.getElementById('retro-mc-' + medId);
+  const check = document.getElementById('retro-mcc-' + medId);
+  el.classList.toggle('selected', !cur);
+  check.textContent = !cur ? '✓' : '';
+}
+
+function saveRetro() {
+  const ds = document.getElementById('retro-date').value;
+  if (!ds) return;
+  const log = getLog(ds);
+  const newlyChecked = state.meds.filter(m => !retroPreviousLog[m.id] && !!log[m.id]).length;
+  if (newlyChecked > 0) awardXP(newlyChecked * 10);
+  save();
+  closeModal('retro-modal');
+  render();
+  const takenCount = state.meds.filter(m => log[m.id]).length;
+  const xpNote = newlyChecked > 0 ? ` · +${newlyChecked * 10} XP` : '';
+  showToast(`✅ ${ds}: ${takenCount}/${state.meds.length} eingetragen${xpNote}`);
+}
+
+// ─── MODAL HELPERS ───────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function maybeCloseModal(e, id) { if (e.target === document.getElementById(id)) closeModal(id); }
+
+// ─── HELPERS ─────────────────────────────────────────────
+function getLast7Dots(medId, today) {
+  return Array.from({length:7}, (_,i) => {
+    const d = new Date(); d.setDate(d.getDate() - (6 - i));
+    const ds = dateStr(d);
+    const log = getLog(ds);
+    const cls = ds === today ? (log[medId] ? 'done' : 'today') : (ds > today ? '' : log[medId] ? 'done' : 'missed');
+    return `<div class="dot ${cls}"></div>`;
+  }).join('');
+}
+
+function getMedStreak(medId) {
+  let s = 0;
+  const d = new Date();
+  const today = todayStr();
+  if (!getLog(today)[medId]) d.setDate(d.getDate() - 1);
+  for (let i = 0; i < 365; i++) {
+    if (getLog(dateStr(d))[medId]) { s++; d.setDate(d.getDate() - 1); } else break;
+  }
+  return s;
+}
+
+function freqLabel(f) {
+  return { daily:'Täglich', weekdays:'Wochentags', weekends:'Wochenende' }[f] || f;
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── UI EFFECTS ──────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+function showMilestone(emoji, title, sub) {
+  document.getElementById('milestone-emoji').textContent = emoji;
+  document.getElementById('milestone-title').textContent = title;
+  document.getElementById('milestone-sub').textContent = sub;
+  document.getElementById('milestone-popup').classList.add('show');
+}
+
+function closeMilestone() {
+  document.getElementById('milestone-popup').classList.remove('show');
+}
+
+function launchConfetti() {
+  const colors = ['#6366f1','#f59e0b','#22c55e','#ec4899','#60a5fa','#f97316'];
+  const c = document.getElementById('confetti-container');
+  for (let i = 0; i < 60; i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    p.style.cssText = `left:${Math.random()*100}vw;top:-10px;background:${colors[Math.floor(Math.random()*colors.length)]};animation-delay:${Math.random()*0.8}s;animation-duration:${1.5+Math.random()*1.5}s;width:${6+Math.random()*8}px;height:${6+Math.random()*8}px;border-radius:${Math.random()>.5?'50%':'2px'};`;
+    c.appendChild(p);
+    setTimeout(() => p.remove(), 3000);
+  }
+}
+
+// ─── DAILY CHECK ─────────────────────────────────────────
+function checkDailyReset() {
+  const today = todayStr();
+  if (state.lastCheckDate && state.lastCheckDate !== today) {
+    if (state.boostDays > 0) state.boostDays--;
+    const yd = new Date(); yd.setDate(yd.getDate() - 1);
+    const yds = dateStr(yd);
+    const log = getLog(yds);
+    const allDone = state.meds.length > 0 && state.meds.every(m => log[m.id]);
+    if (!allDone && state.shields > 0) {
+      if (!state.log[yds]) state.log[yds] = {};
+      state.log[yds]['__shield__'] = true;
+      state.shields--;
+      state.shieldsUsed = (state.shieldsUsed || 0) + 1;
+      showToast('🛡️ Shield hat deinen Streak gerettet!');
+    }
+  }
+  state.lastCheckDate = today;
+}
+
+// ─── INIT ────────────────────────────────────────────────
+loadState();
+checkDailyReset();
+
+// Apply theme before render to avoid flash
+applyTheme(state.settings.theme || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+
+// Init toggles
+document.getElementById('notif-toggle').classList.toggle('on', state.settings.notifications);
+
+render();
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+setInterval(saveState, 30000);
+</script>
+</body>
+</html>
