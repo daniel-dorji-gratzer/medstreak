@@ -1,9 +1,8 @@
-const CACHE = 'medstreak-v3';
+const CACHE = 'medstreak-v4';
+const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE).then(c => c.addAll(['./manifest.json', './icon-192.png', './icon-512.png']))
-  );
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)));
   self.skipWaiting();
 });
 
@@ -16,23 +15,21 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
+  const isNav = e.request.destination === 'document'
+    || url.pathname.endsWith('.html')
+    || url.pathname.endsWith('/');
 
-  // HTML: immer vom Netzwerk, Fallback auf Cache
-  if (e.request.destination === 'document' || url.pathname.endsWith('.html') || url.pathname.endsWith('/')) {
+  if (isNav) {
     e.respondWith(
       fetch(e.request)
         .then(res => {
-          const clone = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
+          caches.open(CACHE).then(c => c.put(e.request, res.clone()));
           return res;
         })
-        .catch(() => caches.match(e.request))
+        .catch(() => caches.match(e.request).then(r => r || caches.match('./index.html')))
     );
     return;
   }
 
-  // Alles andere: Cache first
-  e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request))
-  );
+  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
 });
