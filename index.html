@@ -960,6 +960,10 @@
       <label>Ziel-Zeitraum</label>
       <div class="days-grid" id="goal-days-grid"></div>
     </div>
+    <div class="form-group">
+      <label>Startdatum</label>
+      <input type="date" id="goal-input-startdate" />
+    </div>
     <div class="form-group" id="goal-meds-group">
       <label>Verknüpfte Medikamente</label>
       <div class="med-checkbox-list" id="goal-meds-list"></div>
@@ -1119,18 +1123,22 @@ function awardXP(amount) {
 // ─── GOAL PROGRESS ───────────────────────────────────────
 function getGoalProgress(goal) {
   if (!goal.linkedMeds || goal.linkedMeds.length === 0) return { done: 0, pct: 0 };
-  const today = new Date();
+  const startDs = goal.startDate || (goal.createdAt ? goal.createdAt.split('T')[0] : todayStr());
+  const todayDs = todayStr();
+  const [sy, sm, sd] = startDs.split('-').map(Number);
   let count = 0;
+  let elapsed = 0;
   for (let i = 0; i < goal.targetDays; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
+    const d = new Date(sy, sm - 1, sd + i);
     const ds = dateStr(d);
-    if (ds > todayStr()) continue;
+    if (ds > todayDs) break;
+    elapsed++;
     const log = getLog(ds);
     if (goal.linkedMeds.every(id => log[id])) count++;
   }
-  const pct = Math.round((count / goal.targetDays) * 100);
-  return { done: count, pct };
+  const daysLeft = Math.max(0, goal.targetDays - elapsed);
+  const pct = Math.min(100, Math.round((count / goal.targetDays) * 100));
+  return { done: count, pct, daysLeft };
 }
 
 function anyGoalComplete(s) {
@@ -1270,7 +1278,7 @@ function renderGoals() {
     return;
   }
   list.innerHTML = sortedGoals().map(goal => {
-    const { done, pct } = getGoalProgress(goal);
+    const { done, pct, daysLeft } = getGoalProgress(goal);
     const complete = pct >= 100;
     const linkedMeds = (goal.linkedMeds || []).map(id => state.meds.find(m => m.id === id)).filter(Boolean);
     return `
@@ -1289,7 +1297,7 @@ function renderGoals() {
         </div>
         <div class="goal-progress-label">
           <span>${done} von ${goal.targetDays} Tagen</span>
-          <span>${goal.targetDays - done > 0 ? `${goal.targetDays - done} Tage verbleibend` : 'Geschafft! 🎉'}</span>
+          <span>${complete ? 'Geschafft! 🎉' : daysLeft > 0 ? `${daysLeft} Tage verbleibend` : 'Zeit abgelaufen'}</span>
         </div>
       </div>
       ${linkedMeds.length > 0 ? `
@@ -1618,6 +1626,9 @@ function _openGoalModal(goal) {
 
   document.getElementById('goal-input-name').value = goal.name || '';
   document.getElementById('goal-input-desc').value = goal.desc || '';
+  const sdInput = document.getElementById('goal-input-startdate');
+  sdInput.value = goal.startDate || (goal.createdAt ? goal.createdAt.split('T')[0] : todayStr());
+  sdInput.max = todayStr();
   openModal('add-goal-modal');
   setTimeout(() => document.getElementById('goal-input-name').focus(), 300);
 }
@@ -1643,24 +1654,25 @@ function saveGoal() {
   if (!name) { document.getElementById('goal-input-name').focus(); return; }
   if (!state.goals) state.goals = [];
 
+  const startDate = document.getElementById('goal-input-startdate').value || todayStr();
+  const desc = document.getElementById('goal-input-desc').value.trim();
   if (editingGoalId) {
     const idx = state.goals.findIndex(g => g.id === editingGoalId);
     if (idx !== -1) {
       state.goals[idx] = {
         ...state.goals[idx],
-        name, desc: document.getElementById('goal-input-desc').value.trim(),
-        emoji: selectedGoalEmoji, color: selectedGoalColor,
+        name, desc, emoji: selectedGoalEmoji, color: selectedGoalColor,
         targetDays: selectedGoalDays, linkedMeds: [...selectedGoalMeds],
+        startDate,
       };
     }
     showToast(`${selectedGoalEmoji} Ziel aktualisiert!`);
   } else {
     state.goals.push({
       id: 'goal_' + Date.now(),
-      name, desc: document.getElementById('goal-input-desc').value.trim(),
-      emoji: selectedGoalEmoji, color: selectedGoalColor,
+      name, desc, emoji: selectedGoalEmoji, color: selectedGoalColor,
       targetDays: selectedGoalDays, linkedMeds: [...selectedGoalMeds],
-      createdAt: new Date().toISOString()
+      startDate, createdAt: new Date().toISOString()
     });
     showToast(`${selectedGoalEmoji} Ziel gespeichert!`);
   }
