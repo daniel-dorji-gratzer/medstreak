@@ -870,6 +870,26 @@
         </div>
       </div>
     </div>
+    <div class="section">
+      <div class="section-header"><div class="section-title">Datensicherung</div></div>
+      <div class="settings-card">
+        <div class="settings-row">
+          <div>
+            <div class="settings-label">📤 Exportieren</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">Alle Daten als JSON-Datei speichern</div>
+          </div>
+          <button class="btn-sm accent" onclick="exportData()">Export</button>
+        </div>
+        <div class="settings-row" style="border-top:1px solid var(--border);padding-top:14px;">
+          <div>
+            <div class="settings-label">📥 Importieren</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">Backup wiederherstellen</div>
+          </div>
+          <button class="btn-sm accent" onclick="document.getElementById('import-file').click()">Import</button>
+        </div>
+      </div>
+      <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)" />
+    </div>
     <div class="section last danger-zone">
       <div class="section-header">
         <div class="section-title" style="color:var(--danger);">Gefahrenzone</div>
@@ -1517,6 +1537,39 @@ function buyBoost() {
   if (state.xp < 150) { showToast('Zu wenig XP!'); return; }
   state.xp -= 150; state.boostDays++;
   showToast('✨ XP-Boost aktiv!'); render();
+}
+
+function exportData() {
+  const ts = new Date().toISOString().slice(0, 10);
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `medstreak-backup-${ts}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  showToast('📤 Backup gespeichert!');
+}
+
+function importData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const imported = JSON.parse(ev.target.result);
+      if (!imported.meds || !imported.log) throw new Error('Ungültiges Format');
+      if (!confirm(`Backup vom Import laden? Aktuelle Daten werden überschrieben.`)) return;
+      state = imported;
+      saveState();
+      applyTheme(state.settings?.theme || 'dark');
+      render();
+      showToast('📥 Backup erfolgreich importiert!');
+    } catch {
+      showToast('⚠️ Ungültige Backup-Datei.');
+    }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
 }
 
 function resetAll() {
