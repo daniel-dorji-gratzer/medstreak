@@ -1269,10 +1269,15 @@ function renderHomeGoals() {
   const list = document.getElementById('home-goals-list');
   if (!state.goals || state.goals.length === 0) { sec.style.display = 'none'; return; }
   sec.style.display = 'block';
-  list.innerHTML = sortedGoals().map(goal => {
+
+  const sorted   = sortedGoals();
+  const active   = sorted.filter(g => getGoalProgress(g).pct < 100);
+  const achieved = sorted.filter(g => getGoalProgress(g).pct >= 100);
+
+  const stripHTML = (goal, archived = false) => {
     const { done, pct } = getGoalProgress(goal);
     return `
-    <div class="home-goal-strip" onclick="switchView('goals', document.querySelectorAll('.nav-btn')[1])">
+    <div class="home-goal-strip${archived ? '" style="opacity:0.6' : ''}" onclick="switchView('goals', document.querySelectorAll('.nav-btn')[1])">
       <div class="goal-icon-sm">${goal.emoji}</div>
       <div class="hg-info">
         <div class="hg-name">${esc(goal.name)}</div>
@@ -1281,7 +1286,20 @@ function renderHomeGoals() {
       </div>
       <div class="hg-pct" style="color:${goal.color};">${pct}%</div>
     </div>`;
-  }).join('');
+  };
+
+  let html = active.map(g => stripHTML(g)).join('');
+
+  if (achieved.length > 0) {
+    html += `
+    <button class="archive-toggle" onclick="event.stopPropagation();showArchivedGoals=!showArchivedGoals;renderHomeGoals()">
+      <span>🏆 Erreichte Ziele (${achieved.length})</span>
+      <span>${showArchivedGoals ? '▲' : '▼'}</span>
+    </button>`;
+    if (showArchivedGoals) html += achieved.map(g => stripHTML(g, true)).join('');
+  }
+
+  list.innerHTML = html;
 }
 
 function renderTodayProgress() {
