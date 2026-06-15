@@ -894,7 +894,7 @@
         </div>
         <div class="settings-row">
           <div class="settings-label">App-Version</div>
-          <div class="settings-value">1.2.0</div>
+          <div class="settings-value">1.3.0</div>
         </div>
       </div>
     </div>
@@ -1399,16 +1399,23 @@ function goalCardHTML(goal, isArchived = false) {
 
   let barHTML, labelHTML, badgeHTML;
   if (isPeriod) {
-    const barPct   = pg.currentPct;
-    const tPct     = pg.targetPct;
-    const barColor = pg.succeeded ? 'var(--success)' : pg.failed ? 'var(--danger)' : barPct >= tPct ? 'var(--success)' : goal.color;
+    const tPct      = pg.targetPct;
+    const takenPct  = pg.totalDays > 0 ? Math.min(100, Math.round(pg.done / pg.totalDays * 100)) : 0;
+    const missedPct = pg.totalDays > 0 ? Math.max(0, Math.round((pg.elapsed - pg.done) / pg.totalDays * 100)) : 0;
+    const onTrack   = pg.currentPct >= tPct;
+    const fillColor = pg.succeeded ? 'var(--gold)' : pg.failed ? 'var(--danger)' : onTrack ? 'var(--success)' : goal.color;
     barHTML = `
-      <div class="goal-progress-bar" style="position:relative;">
-        <div class="goal-progress-fill" style="width:${barPct}%;background:${barColor};"></div>
-        <div style="position:absolute;top:0;bottom:0;left:${Math.min(tPct,99)}%;width:2px;background:var(--text);opacity:0.35;border-radius:2px;"></div>
+      <div style="position:relative;margin-bottom:7px;">
+        <div style="height:9px;background:var(--surface2);border-radius:99px;overflow:hidden;">
+          <div style="height:100%;display:flex;">
+            <div style="width:${takenPct}%;background:${fillColor};border-radius:99px 0 0 99px;flex-shrink:0;transition:width 0.7s cubic-bezier(0.34,1.56,0.64,1);"></div>
+            <div style="width:${missedPct}%;background:var(--border);flex-shrink:0;"></div>
+          </div>
+        </div>
+        <div style="position:absolute;top:-3px;bottom:-3px;left:${Math.min(tPct,99)}%;width:2px;background:var(--text);opacity:0.65;border-radius:1px;"></div>
       </div>`;
     const rightLabel = pg.succeeded ? 'Erreicht ✓' : pg.failed ? 'Verfehlt ✗' : daysLeft > 0 ? `${daysLeft} Tage verbleibend` : '–';
-    labelHTML = `<span>${done} von ${pg.elapsed} Tagen · ${barPct}%</span><span>Ziel: ${tPct}% · ${rightLabel}</span>`;
+    labelHTML = `<span>${pg.done} von ${pg.totalDays} Tagen · ${pg.currentPct}% Einnahme</span><span>Ziel: ${tPct}% · ${rightLabel}</span>`;
     badgeHTML = pg.succeeded ? `<div class="goal-status-badge success">🥇 Ziel erreicht!</div>`
               : pg.failed    ? `<div class="goal-status-badge failed">❌ Ziel verfehlt</div>` : '';
   } else {
@@ -1477,11 +1484,33 @@ function statsGoalCardHTML(goal) {
   const complete = isGoalComplete(goal);
   const borderColor = pg.succeeded || (!isPeriod && complete) ? 'var(--gold)' : pg.failed ? 'var(--danger)' : 'var(--border)';
   const displayPct  = isPeriod ? pg.currentPct : pct;
-  const barColor    = isPeriod
-    ? (pg.succeeded ? 'var(--success)' : pg.failed ? 'var(--danger)' : pg.currentPct >= pg.targetPct ? 'var(--success)' : goal.color)
-    : goal.color;
+
+  let statsBarHTML;
+  if (isPeriod) {
+    const tPct      = pg.targetPct;
+    const takenPct  = pg.totalDays > 0 ? Math.min(100, Math.round(pg.done / pg.totalDays * 100)) : 0;
+    const missedPct = pg.totalDays > 0 ? Math.max(0, Math.round((pg.elapsed - pg.done) / pg.totalDays * 100)) : 0;
+    const onTrack   = pg.currentPct >= tPct;
+    const fillColor = pg.succeeded ? 'var(--gold)' : pg.failed ? 'var(--danger)' : onTrack ? 'var(--success)' : goal.color;
+    statsBarHTML = `
+      <div style="position:relative;">
+        <div style="height:8px;background:var(--surface2);border-radius:99px;overflow:hidden;">
+          <div style="height:100%;display:flex;">
+            <div style="width:${takenPct}%;background:${fillColor};border-radius:99px 0 0 99px;flex-shrink:0;transition:width 0.6s ease;"></div>
+            <div style="width:${missedPct}%;background:var(--border);flex-shrink:0;"></div>
+          </div>
+        </div>
+        <div style="position:absolute;top:-3px;bottom:-3px;left:${Math.min(tPct,99)}%;width:2px;background:var(--text);opacity:0.65;border-radius:1px;"></div>
+      </div>`;
+  } else {
+    statsBarHTML = `
+      <div style="height:8px;background:var(--surface2);border-radius:99px;overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:${goal.color};border-radius:99px;transition:width 0.6s ease;"></div>
+      </div>`;
+  }
+
   const sublabel = isPeriod
-    ? `${done}/${pg.elapsed} Tage · ${pg.currentPct}% (Ziel: ${pg.targetPct}%) · ${pg.succeeded ? '🥇 Erreicht!' : pg.failed ? '❌ Verfehlt' : daysLeft > 0 ? `${daysLeft} Tage verbleibend` : '–'}`
+    ? `${pg.done}/${pg.totalDays} Tage · ${pg.currentPct}% Einnahme (Ziel: ${pg.targetPct}%) · ${pg.succeeded ? '🥇 Erreicht!' : pg.failed ? '❌ Verfehlt' : daysLeft > 0 ? `${daysLeft} Tage verbleibend` : '–'}`
     : `${done}/${goal.targetDays} Tage · ${complete ? '🥇 Erreicht!' : daysLeft > 0 ? `${daysLeft} Tage verbleibend` : 'Zeit abgelaufen'}`;
   return `
   <div style="background:var(--surface);border-radius:var(--radius-sm);padding:14px;margin-bottom:8px;border:1px solid ${borderColor};${complete ? 'opacity:0.75;' : ''}">
@@ -1493,10 +1522,7 @@ function statsGoalCardHTML(goal) {
       </div>
       <div style="font-weight:800;color:${goal.color};">${displayPct}%</div>
     </div>
-    <div style="height:8px;background:var(--surface2);border-radius:99px;overflow:hidden;position:relative;">
-      <div style="height:100%;width:${displayPct}%;background:${barColor};border-radius:99px;transition:width 0.6s ease;"></div>
-      ${isPeriod ? `<div style="position:absolute;top:0;bottom:0;left:${Math.min(pg.targetPct,99)}%;width:2px;background:var(--text);opacity:0.35;"></div>` : ''}
-    </div>
+    ${statsBarHTML}
   </div>`;
 }
 
