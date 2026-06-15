@@ -292,6 +292,24 @@
       font-size: 12px; font-weight: 700; margin-top: 10px;
     }
     .goal-actions { display: flex; gap: 8px; margin-top: 13px; }
+    .type-toggle { display: flex; gap: 8px; }
+    .type-btn {
+      flex: 1; padding: 10px 8px; border-radius: var(--radius-sm);
+      background: var(--surface2); border: 1.5px solid var(--border);
+      color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .type-btn.selected { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .goal-status-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      border-radius: 99px; padding: 4px 11px;
+      font-size: 12px; font-weight: 700; margin-top: 10px;
+    }
+    .goal-status-badge.success { background: rgba(34,197,94,0.14); color: var(--success); }
+    .goal-status-badge.failed  { background: rgba(239,68,68,0.14);  color: var(--danger); }
+    .goal-card.failed { border-color: var(--danger); }
+    .goal-card.failed::before { background: rgba(239,68,68,0.04); }
+    input[type=range] { width: 100%; accent-color: var(--primary); }
     .archive-toggle {
       display: flex; align-items: center; justify-content: space-between;
       padding: 11px 14px; margin: 6px 0 4px;
@@ -987,8 +1005,31 @@
       <div class="color-grid" id="goal-color-grid"></div>
     </div>
     <div class="form-group">
-      <label>Ziel-Zeitraum</label>
-      <div class="days-grid" id="goal-days-grid"></div>
+      <label>Ziel-Typ</label>
+      <div class="type-toggle">
+        <button id="goal-type-btn-days" class="type-btn selected" onclick="setGoalType('days')">🗓 Tage-Ziel</button>
+        <button id="goal-type-btn-period" class="type-btn" onclick="setGoalType('period')">📅 Zeitraum-Ziel</button>
+      </div>
+    </div>
+    <div id="goal-days-section">
+      <div class="form-group">
+        <label>Ziel-Zeitraum</label>
+        <div class="days-grid" id="goal-days-grid"></div>
+      </div>
+    </div>
+    <div id="goal-period-section" style="display:none">
+      <div class="form-group">
+        <label>Enddatum</label>
+        <input type="date" id="goal-input-enddate" />
+      </div>
+      <div class="form-group">
+        <label>Einnahme an mindestens <span id="goal-pct-label">80</span>% der Tage</label>
+        <input type="range" id="goal-input-pct" min="50" max="100" value="80" step="5"
+               oninput="document.getElementById('goal-pct-label').textContent=this.value" />
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:3px;">
+          <span>50%</span><span>75%</span><span>100%</span>
+        </div>
+      </div>
     </div>
     <div class="form-group">
       <label>Startdatum</label>
@@ -1152,27 +1193,58 @@ function awardXP(amount) {
 
 // ─── GOAL PROGRESS ───────────────────────────────────────
 function getGoalProgress(goal) {
-  if (!goal.linkedMeds || goal.linkedMeds.length === 0) return { done: 0, pct: 0 };
-  const startDs = goal.startDate || (goal.createdAt ? goal.createdAt.split('T')[0] : todayStr());
+  if (!goal.linkedMeds || goal.linkedMeds.length === 0)
+    return { done: 0, pct: 0, daysLeft: 0, isPeriod: false };
   const todayDs = todayStr();
+
+  if (goal.type === 'period') {
+    const startDs = goal.startDate || todayDs;
+    const endDs   = goal.endDate   || todayDs;
+    const [sy, sm, sd] = startDs.split('-').map(Number);
+    const [ey, em, ed] = endDs.split('-').map(Number);
+    const endDate  = new Date(ey, em - 1, ed);
+    const totalDays = Math.round((endDate - new Date(sy, sm - 1, sd)) / 86400000) + 1;
+    const ended    = todayDs > endDs;
+    const capDs    = ended ? endDs : todayDs;
+    let count = 0, elapsed = 0;
+    for (let i = 0; i < totalDays; i++) {
+      const ds = dateStr(new Date(sy, sm - 1, sd + i));
+      if (ds > capDs) break;
+      elapsed++;
+      if (goal.linkedMeds.every(id => getLog(ds)[id])) count++;
+    }
+    const targetPct  = goal.targetPct || 80;
+    const currentPct = elapsed > 0 ? Math.round(count / elapsed * 100) : 0;
+    const pct        = Math.min(100, Math.round(currentPct / targetPct * 100));
+    const todayDate  = new Date(...todayDs.split('-').map((v, i) => i === 1 ? +v - 1 : +v));
+    const daysLeft   = ended ? 0 : Math.round((endDate - todayDate) / 86400000);
+    return { done: count, pct, currentPct, targetPct, totalDays, elapsed,
+             daysLeft, ended, succeeded: ended && currentPct >= targetPct,
+             failed: ended && currentPct < targetPct, isPeriod: true };
+  }
+
+  // Days goal
+  const startDs = goal.startDate || (goal.createdAt ? goal.createdAt.split('T')[0] : todayDs);
   const [sy, sm, sd] = startDs.split('-').map(Number);
-  let count = 0;
-  let elapsed = 0;
+  let count = 0, elapsed = 0;
   for (let i = 0; i < goal.targetDays; i++) {
-    const d = new Date(sy, sm - 1, sd + i);
-    const ds = dateStr(d);
+    const ds = dateStr(new Date(sy, sm - 1, sd + i));
     if (ds > todayDs) break;
     elapsed++;
-    const log = getLog(ds);
-    if (goal.linkedMeds.every(id => log[id])) count++;
+    if (goal.linkedMeds.every(id => getLog(ds)[id])) count++;
   }
   const daysLeft = Math.max(0, goal.targetDays - elapsed);
-  const pct = Math.min(100, Math.round((count / goal.targetDays) * 100));
-  return { done: count, pct, daysLeft };
+  const pct = Math.min(100, Math.round(count / goal.targetDays * 100));
+  return { done: count, pct, daysLeft, isPeriod: false };
+}
+
+function isGoalComplete(goal) {
+  const pg = getGoalProgress(goal);
+  return goal.type === 'period' ? pg.ended : pg.pct >= 100;
 }
 
 function anyGoalComplete(s) {
-  return (s.goals || []).some(g => getGoalProgress(g).pct >= 100);
+  return (s.goals || []).some(g => isGoalComplete(g));
 }
 
 function anyPerfectDay(s) {
@@ -1255,12 +1327,9 @@ function renderMeds() {
 
 function sortedGoals() {
   return [...(state.goals || [])].sort((a, b) => {
-    const { done: dA, pct: pA } = getGoalProgress(a);
-    const { done: dB, pct: pB } = getGoalProgress(b);
-    // Completed goals always go to the end
-    const remA = pA >= 100 ? Infinity : a.targetDays - dA;
-    const remB = pB >= 100 ? Infinity : b.targetDays - dB;
-    return remA - remB;
+    const cA = isGoalComplete(a), cB = isGoalComplete(b);
+    if (cA !== cB) return cA ? 1 : -1;
+    return (getGoalProgress(a).daysLeft ?? Infinity) - (getGoalProgress(b).daysLeft ?? Infinity);
   });
 }
 
@@ -1271,20 +1340,24 @@ function renderHomeGoals() {
   sec.style.display = 'block';
 
   const sorted   = sortedGoals();
-  const active   = sorted.filter(g => getGoalProgress(g).pct < 100);
-  const achieved = sorted.filter(g => getGoalProgress(g).pct >= 100);
+  const active   = sorted.filter(g => !isGoalComplete(g));
+  const achieved = sorted.filter(g =>  isGoalComplete(g));
 
   const stripHTML = (goal, archived = false) => {
-    const { done, pct } = getGoalProgress(goal);
+    const pg = getGoalProgress(goal);
+    const displayPct = pg.isPeriod ? pg.currentPct : pg.pct;
+    const sub = pg.isPeriod
+      ? `${pg.done} von ${pg.elapsed} Tagen · ${pg.currentPct}% (Ziel: ${pg.targetPct}%)`
+      : `${pg.done} von ${goal.targetDays} Tagen · ${displayPct}%`;
     return `
     <div class="home-goal-strip${archived ? '" style="opacity:0.6' : ''}" onclick="switchView('goals', document.querySelectorAll('.nav-btn')[1])">
       <div class="goal-icon-sm">${goal.emoji}</div>
       <div class="hg-info">
         <div class="hg-name">${esc(goal.name)}</div>
-        <div class="hg-sub">${done} von ${goal.targetDays} Tagen · ${pct}%</div>
-        <div class="hg-bar"><div class="hg-fill" style="width:${pct}%;background:${goal.color};"></div></div>
+        <div class="hg-sub">${sub}</div>
+        <div class="hg-bar"><div class="hg-fill" style="width:${displayPct}%;background:${goal.color};"></div></div>
       </div>
-      <div class="hg-pct" style="color:${goal.color};">${pct}%</div>
+      <div class="hg-pct" style="color:${goal.color};">${displayPct}%</div>
     </div>`;
   };
 
@@ -1293,7 +1366,7 @@ function renderHomeGoals() {
   if (achieved.length > 0) {
     html += `
     <button class="archive-toggle" onclick="event.stopPropagation();showArchivedGoals=!showArchivedGoals;renderHomeGoals()">
-      <span>🏆 Erreichte Ziele (${achieved.length})</span>
+      <span>🏁 Abgeschlossene Ziele (${achieved.length})</span>
       <span>${showArchivedGoals ? '▲' : '▼'}</span>
     </button>`;
     if (showArchivedGoals) html += achieved.map(g => stripHTML(g, true)).join('');
@@ -1319,33 +1392,52 @@ function renderTodayProgress() {
 }
 
 function goalCardHTML(goal, isArchived = false) {
-  const { done, pct, daysLeft } = getGoalProgress(goal);
-  const complete = pct >= 100;
+  const pg = getGoalProgress(goal);
+  const { done, pct, daysLeft, isPeriod } = pg;
+  const complete = isGoalComplete(goal);
   const linkedMeds = (goal.linkedMeds || []).map(id => state.meds.find(m => m.id === id)).filter(Boolean);
+
+  let barHTML, labelHTML, badgeHTML;
+  if (isPeriod) {
+    const barPct   = pg.currentPct;
+    const tPct     = pg.targetPct;
+    const barColor = pg.succeeded ? 'var(--success)' : pg.failed ? 'var(--danger)' : barPct >= tPct ? 'var(--success)' : goal.color;
+    barHTML = `
+      <div class="goal-progress-bar" style="position:relative;">
+        <div class="goal-progress-fill" style="width:${barPct}%;background:${barColor};"></div>
+        <div style="position:absolute;top:0;bottom:0;left:${Math.min(tPct,99)}%;width:2px;background:var(--text);opacity:0.35;border-radius:2px;"></div>
+      </div>`;
+    const rightLabel = pg.succeeded ? 'Erreicht ✓' : pg.failed ? 'Verfehlt ✗' : daysLeft > 0 ? `${daysLeft} Tage verbleibend` : '–';
+    labelHTML = `<span>${done} von ${pg.elapsed} Tagen · ${barPct}%</span><span>Ziel: ${tPct}% · ${rightLabel}</span>`;
+    badgeHTML = pg.succeeded ? `<div class="goal-status-badge success">🥇 Ziel erreicht!</div>`
+              : pg.failed    ? `<div class="goal-status-badge failed">❌ Ziel verfehlt</div>` : '';
+  } else {
+    barHTML = `
+      <div class="goal-progress-bar">
+        <div class="goal-progress-fill" style="width:${pct}%;background:${goal.color};"></div>
+      </div>`;
+    labelHTML = `<span>${done} von ${goal.targetDays} Tagen</span><span>${complete ? 'Geschafft! 🎉' : daysLeft > 0 ? `${daysLeft} Tage verbleibend` : 'Zeit abgelaufen'}</span>`;
+    badgeHTML = complete ? `<div class="goal-badge-done">🥇 Ziel erreicht!</div>` : '';
+  }
+
+  const cardClass = pg.succeeded || (!isPeriod && complete) ? 'complete' : pg.failed ? 'failed' : '';
   return `
-  <div class="goal-card ${complete ? 'complete' : ''} ${isArchived ? 'archived' : ''}">
+  <div class="goal-card ${cardClass} ${isArchived ? 'archived' : ''}">
     <div class="goal-top">
       <div class="goal-icon" style="background:${goal.color}22;">${goal.emoji}</div>
       <div class="goal-info">
         <div class="goal-name">${esc(goal.name)}</div>
         ${goal.desc ? `<div class="goal-desc">${esc(goal.desc)}</div>` : ''}
+        ${isPeriod ? `<div class="goal-desc">${goal.startDate} – ${goal.endDate}</div>` : ''}
       </div>
-      <div class="goal-pct" style="color:${goal.color};">${pct}%</div>
+      <div class="goal-pct" style="color:${goal.color};">${isPeriod ? pg.currentPct : pct}%</div>
     </div>
     <div class="goal-progress-wrap">
-      <div class="goal-progress-bar">
-        <div class="goal-progress-fill" style="width:${pct}%;background:${goal.color};"></div>
-      </div>
-      <div class="goal-progress-label">
-        <span>${done} von ${goal.targetDays} Tagen</span>
-        <span>${complete ? 'Geschafft! 🎉' : daysLeft > 0 ? `${daysLeft} Tage verbleibend` : 'Zeit abgelaufen'}</span>
-      </div>
+      ${barHTML}
+      <div class="goal-progress-label">${labelHTML}</div>
     </div>
-    ${linkedMeds.length > 0 ? `
-      <div class="goal-meds">
-        ${linkedMeds.map(m => `<div class="goal-med-chip">${m.emoji} ${esc(m.name)}</div>`).join('')}
-      </div>` : ''}
-    ${complete ? `<div class="goal-badge-done">🥇 Ziel erreicht!</div>` : ''}
+    ${linkedMeds.length > 0 ? `<div class="goal-meds">${linkedMeds.map(m=>`<div class="goal-med-chip">${m.emoji} ${esc(m.name)}</div>`).join('')}</div>` : ''}
+    ${badgeHTML}
     <div class="goal-actions">
       <button class="btn-sm accent" onclick="openEditGoalModal('${goal.id}')">✏️ Bearbeiten</button>
       <button class="btn-sm red" onclick="deleteGoal('${goal.id}')">🗑️ Löschen</button>
@@ -1361,15 +1453,15 @@ function renderGoals() {
     return;
   }
   const sorted = sortedGoals();
-  const active   = sorted.filter(g => getGoalProgress(g).pct < 100);
-  const achieved = sorted.filter(g => getGoalProgress(g).pct >= 100);
+  const active   = sorted.filter(g => !isGoalComplete(g));
+  const achieved = sorted.filter(g =>  isGoalComplete(g));
 
   let html = active.map(g => goalCardHTML(g)).join('');
 
   if (achieved.length > 0) {
     html += `
     <button class="archive-toggle" onclick="showArchivedGoals=!showArchivedGoals;renderGoals()">
-      <span>🏆 Erreichte Ziele (${achieved.length})</span>
+      <span>🏁 Abgeschlossene Ziele (${achieved.length})</span>
       <span>${showArchivedGoals ? '▲' : '▼'}</span>
     </button>`;
     if (showArchivedGoals) html += achieved.map(g => goalCardHTML(g, true)).join('');
@@ -1380,20 +1472,30 @@ function renderGoals() {
 }
 
 function statsGoalCardHTML(goal) {
-  const { done, pct, daysLeft } = getGoalProgress(goal);
-  const complete = pct >= 100;
+  const pg = getGoalProgress(goal);
+  const { done, pct, daysLeft, isPeriod } = pg;
+  const complete = isGoalComplete(goal);
+  const borderColor = pg.succeeded || (!isPeriod && complete) ? 'var(--gold)' : pg.failed ? 'var(--danger)' : 'var(--border)';
+  const displayPct  = isPeriod ? pg.currentPct : pct;
+  const barColor    = isPeriod
+    ? (pg.succeeded ? 'var(--success)' : pg.failed ? 'var(--danger)' : pg.currentPct >= pg.targetPct ? 'var(--success)' : goal.color)
+    : goal.color;
+  const sublabel = isPeriod
+    ? `${done}/${pg.elapsed} Tage · ${pg.currentPct}% (Ziel: ${pg.targetPct}%) · ${pg.succeeded ? '🥇 Erreicht!' : pg.failed ? '❌ Verfehlt' : daysLeft > 0 ? `${daysLeft} Tage verbleibend` : '–'}`
+    : `${done}/${goal.targetDays} Tage · ${complete ? '🥇 Erreicht!' : daysLeft > 0 ? `${daysLeft} Tage verbleibend` : 'Zeit abgelaufen'}`;
   return `
-  <div style="background:var(--surface);border-radius:var(--radius-sm);padding:14px;margin-bottom:8px;border:1px solid ${complete ? 'var(--gold)' : 'var(--border)'};${complete ? 'opacity:0.75;' : ''}">
+  <div style="background:var(--surface);border-radius:var(--radius-sm);padding:14px;margin-bottom:8px;border:1px solid ${borderColor};${complete ? 'opacity:0.75;' : ''}">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
       <span style="font-size:20px;">${goal.emoji}</span>
       <div style="flex:1;">
         <div style="font-weight:700;font-size:15px;">${esc(goal.name)}</div>
-        <div style="font-size:12px;color:var(--muted);">${done}/${goal.targetDays} Tage · ${complete ? '🥇 Erreicht!' : daysLeft > 0 ? `${daysLeft} Tage verbleibend` : 'Zeit abgelaufen'}</div>
+        <div style="font-size:12px;color:var(--muted);">${sublabel}</div>
       </div>
-      <div style="font-weight:800;color:${goal.color};">${pct}%</div>
+      <div style="font-weight:800;color:${goal.color};">${displayPct}%</div>
     </div>
-    <div style="height:8px;background:var(--surface2);border-radius:99px;overflow:hidden;">
-      <div style="height:100%;width:${pct}%;background:${goal.color};border-radius:99px;transition:width 0.6s ease;"></div>
+    <div style="height:8px;background:var(--surface2);border-radius:99px;overflow:hidden;position:relative;">
+      <div style="height:100%;width:${displayPct}%;background:${barColor};border-radius:99px;transition:width 0.6s ease;"></div>
+      ${isPeriod ? `<div style="position:absolute;top:0;bottom:0;left:${Math.min(pg.targetPct,99)}%;width:2px;background:var(--text);opacity:0.35;"></div>` : ''}
     </div>
   </div>`;
 }
@@ -1406,15 +1508,15 @@ function renderStatsGoals() {
   sec.style.display = 'block';
 
   const sorted   = sortedGoals();
-  const active   = sorted.filter(g => getGoalProgress(g).pct < 100);
-  const achieved = sorted.filter(g => getGoalProgress(g).pct >= 100);
+  const active   = sorted.filter(g => !isGoalComplete(g));
+  const achieved = sorted.filter(g =>  isGoalComplete(g));
 
   let html = active.map(g => statsGoalCardHTML(g)).join('');
 
   if (achieved.length > 0) {
     html += `
     <button class="archive-toggle" onclick="showArchivedStatsGoals=!showArchivedStatsGoals;renderStatsGoals()">
-      <span>🏆 Erreichte Ziele (${achieved.length})</span>
+      <span>🏁 Abgeschlossene Ziele (${achieved.length})</span>
       <span>${showArchivedStatsGoals ? '▲' : '▼'}</span>
     </button>`;
     if (showArchivedStatsGoals) html += achieved.map(g => statsGoalCardHTML(g)).join('');
@@ -1670,6 +1772,7 @@ let calYear = new Date().getFullYear(), calMonth = new Date().getMonth();
 let retroPreviousLog = {};
 let showArchivedGoals = false;
 let showArchivedStatsGoals = false;
+let selectedGoalType = 'days';
 
 function openAddMedModal() {
   selectedMedEmoji = '💊'; selectedMedColor = '#6366f1';
@@ -1713,19 +1816,37 @@ function openEditGoalModal(goalId) {
   _openGoalModal(goal);
 }
 
+function setGoalType(type) {
+  selectedGoalType = type;
+  document.getElementById('goal-days-section').style.display   = type === 'days'   ? 'block' : 'none';
+  document.getElementById('goal-period-section').style.display = type === 'period' ? 'block' : 'none';
+  document.getElementById('goal-type-btn-days').classList.toggle('selected',   type === 'days');
+  document.getElementById('goal-type-btn-period').classList.toggle('selected', type === 'period');
+}
+
 function _openGoalModal(goal) {
   selectedGoalEmoji = goal.emoji || '🎯';
   selectedGoalColor = goal.color || '#6366f1';
   selectedGoalDays  = goal.targetDays || 30;
   selectedGoalMeds  = new Set(goal.linkedMeds || []);
+  selectedGoalType  = goal.type || 'days';
 
   buildEmojiGrid('goal-emoji-grid', GOAL_EMOJIS, selectedGoalEmoji, 'Goal');
   buildColorGrid('goal-color-grid', selectedGoalColor, 'Goal');
+  setGoalType(selectedGoalType);
 
   const dg = document.getElementById('goal-days-grid');
   dg.innerHTML = TARGET_DAYS_OPTIONS.map(d =>
     `<button class="day-btn ${d === selectedGoalDays ? 'selected' : ''}" onclick="selectGoalDays(${d}, this)">${d} Tage</button>`
   ).join('');
+
+  // Period fields
+  const endInput = document.getElementById('goal-input-enddate');
+  endInput.value = goal.endDate || '';
+  endInput.min   = todayStr();
+  const pctInput = document.getElementById('goal-input-pct');
+  pctInput.value = goal.targetPct || 80;
+  document.getElementById('goal-pct-label').textContent = pctInput.value;
 
   const mg = document.getElementById('goal-meds-group');
   const ml = document.getElementById('goal-meds-list');
@@ -1748,7 +1869,6 @@ function _openGoalModal(goal) {
   document.getElementById('goal-input-desc').value = goal.desc || '';
   const sdInput = document.getElementById('goal-input-startdate');
   sdInput.value = goal.startDate || (goal.createdAt ? goal.createdAt.split('T')[0] : todayStr());
-  sdInput.max = todayStr();
   openModal('add-goal-modal');
   setTimeout(() => document.getElementById('goal-input-name').focus(), 300);
 }
@@ -1776,14 +1896,22 @@ function saveGoal() {
 
   const startDate = document.getElementById('goal-input-startdate').value || todayStr();
   const desc = document.getElementById('goal-input-desc').value.trim();
+  const isPeriod = selectedGoalType === 'period';
+  if (isPeriod && !document.getElementById('goal-input-enddate').value) {
+    document.getElementById('goal-input-enddate').focus(); return;
+  }
+  const extraFields = isPeriod
+    ? { type: 'period', endDate: document.getElementById('goal-input-enddate').value,
+        targetPct: +document.getElementById('goal-input-pct').value }
+    : { type: 'days', targetDays: selectedGoalDays };
+
   if (editingGoalId) {
     const idx = state.goals.findIndex(g => g.id === editingGoalId);
     if (idx !== -1) {
       state.goals[idx] = {
         ...state.goals[idx],
         name, desc, emoji: selectedGoalEmoji, color: selectedGoalColor,
-        targetDays: selectedGoalDays, linkedMeds: [...selectedGoalMeds],
-        startDate,
+        linkedMeds: [...selectedGoalMeds], startDate, ...extraFields,
       };
     }
     showToast(`${selectedGoalEmoji} Ziel aktualisiert!`);
@@ -1791,8 +1919,8 @@ function saveGoal() {
     state.goals.push({
       id: 'goal_' + Date.now(),
       name, desc, emoji: selectedGoalEmoji, color: selectedGoalColor,
-      targetDays: selectedGoalDays, linkedMeds: [...selectedGoalMeds],
-      startDate, createdAt: new Date().toISOString()
+      linkedMeds: [...selectedGoalMeds], startDate,
+      createdAt: new Date().toISOString(), ...extraFields
     });
     showToast(`${selectedGoalEmoji} Ziel gespeichert!`);
   }
