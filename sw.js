@@ -1,4 +1,4 @@
-const CACHE = 'medstreak-v9';
+const CACHE = 'medstreak-v10';
 const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
